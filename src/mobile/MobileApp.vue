@@ -53,7 +53,7 @@
                         /></label>
                         <div v-if="preview" class="preview">
                             <img :src="preview" alt="Cropped image preview" />
-                            <p class="muted">Square crop, resized to 1024 × 1024.</p>
+                            <p class="muted">4:3 crop, resized to 1200 × 900.</p>
                             <button :disabled="busy" @click="saveImage">Upload and change image</button>
                         </div>
                     </template>
@@ -250,10 +250,33 @@
         await run(async () => {
             const img = await createImageBitmap(file);
             const canvas = document.createElement('canvas');
-            canvas.width = canvas.height = 1024;
+            canvas.width = 1200;
+            canvas.height = 900;
             const context = canvas.getContext('2d');
-            const side = Math.min(img.width, img.height);
-            context.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, 1024, 1024);
+            const targetRatio = 4 / 3;
+            const sourceRatio = img.width / img.height;
+            let sourceWidth = img.width;
+            let sourceHeight = img.height;
+            let sourceX = 0;
+            let sourceY = 0;
+            if (sourceRatio > targetRatio) {
+                sourceWidth = img.height * targetRatio;
+                sourceX = (img.width - sourceWidth) / 2;
+            } else if (sourceRatio < targetRatio) {
+                sourceHeight = img.width / targetRatio;
+                sourceY = (img.height - sourceHeight) / 2;
+            }
+            context.drawImage(
+                img,
+                sourceX,
+                sourceY,
+                sourceWidth,
+                sourceHeight,
+                0,
+                0,
+                canvas.width,
+                canvas.height
+            );
             img.close();
             preview.value = canvas.toDataURL('image/png');
             imageData.value = preview.value.split(',')[1];
