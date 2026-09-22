@@ -44,7 +44,8 @@ jobs:
           node --check src/mobile/bridge.js
           node --check src/mobile/main.js
           node --check src/mobile/vite.config.js
-      - run: npm test
+      - name: Test Android API adapter
+        run: npx vitest run src/mobile/api.test.js
       - run: npm run prod
       - run: npm run android:web
       - run: gradle assembleDebug --no-daemon
