@@ -7,9 +7,14 @@ export function useMainLayoutResizable() {
     const appearanceStore = useAppearanceSettingsStore();
     const { isSideBarTabShow } = storeToRefs(appearanceStore);
 
-    const asideDefaultSize = 25;
-    const mainDefaultSize = 75;
-    const asideMinSize = 12;
+    const isAndroidCompact =
+        globalThis.ANDROID === true &&
+        typeof window !== 'undefined' &&
+        window.matchMedia('(max-width: 720px)').matches;
+
+    const asideDefaultSize = isAndroidCompact ? 0 : 25;
+    const mainDefaultSize = isAndroidCompact ? 100 : 75;
+    const asideMinSize = isAndroidCompact ? 0 : 12;
     const asideMaxPx = 700;
 
     const isAsideCollapsed = (layout) => Array.isArray(layout) && layout.length >= 2 && layout[layout.length - 1] <= 1;
