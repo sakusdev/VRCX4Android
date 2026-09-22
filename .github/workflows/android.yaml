@@ -50,12 +50,14 @@ jobs:
       - run: npm run lint
       - name: Syntax check Android renderer
         run: |
-          node --check src/mobile/api.js
           node --check src/mobile/bridge.js
           node --check src/mobile/main.js
           node --check src/mobile/vite.config.js
-      - name: Test Android API adapter
-        run: npx vitest run src/mobile/api.test.js
+      - name: Verify upstream desktop renderer reuse
+        run: |
+          test ! -e src/mobile/MobileApp.vue
+          test ! -e src/mobile/api.js
+          grep -Fq "await import('../app.js')" src/mobile/main.js
       - run: npm run prod
       - run: npm run android:web
       - run: gradle assembleDebug --no-daemon
