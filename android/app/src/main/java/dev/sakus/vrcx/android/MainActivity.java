@@ -175,6 +175,9 @@ public final class MainActivity extends Activity {
                         case "request":
                             value = api.request(input);
                             break;
+                        case "interop":
+                            value = api.interop(input);
+                            break;
                         case "logout":
                             api.clearSession();
                             value = true;
