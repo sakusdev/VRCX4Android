@@ -58,7 +58,7 @@ final class NativeApi {
         prefs = context.getSharedPreferences("native_session", Context.MODE_PRIVATE);
         desktopPrefs = context.getSharedPreferences("vrcx_storage", Context.MODE_PRIVATE);
         database = context.openOrCreateDatabase("vrcx.db", Context.MODE_PRIVATE, null);
-        database.execSQL("PRAGMA journal_mode=WAL");
+        database.enableWriteAheadLogging();
         database.execSQL("PRAGMA busy_timeout=5000");
         restoreCookies();
     }
