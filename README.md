@@ -142,7 +142,6 @@ To see VRChat's stance on API usage, see the #faq channel in the VRChat Discord.
 
 VRCX is not endorsed by VRChat and does not reflect the views or opinions of VRChat or anyone officially involved in producing or managing VRChat properties. VRChat and all associated properties are trademarks or registered trademarks of VRChat Inc. VRChat © VRChat Inc.
 
-
 ## Unofficial Android port (experimental)
 
 This fork is an unofficial Android port of [VRCX](https://github.com/vrcx-team/VRCX). It uses VRCX's Vue 3/Vite dependencies and VRChat API endpoint conventions with an Android-specific renderer and native HTTP bridge. It is **not** a release from VRCX Team. The MIT license and upstream attribution remain in place.
@@ -163,4 +162,3 @@ The Android WebView loads bundled Vue assets. A narrow Java bridge handles HTTPS
 ### Upstream sync
 
 Keep Android Java code in `android/` and the renderer in `src/mobile/`. Upstream desktop files remain untouched except for build metadata. Merge upstream `master` regularly and resolve only shared API changes needed by the mobile renderer.
-
