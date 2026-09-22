@@ -118,7 +118,7 @@ export async function uploadImageLegacy(type, { entityId, imageUrl, base64File, 
     // Android deliberately reuses the upstream /file/image path used by VRCX's
     // Linux image APIs. It avoids pulling the desktop librsync signer into the
     // Android shell while keeping the existing desktop crop/dialog UI intact.
-    if (typeof ANDROID !== 'undefined' && ANDROID) {
+    if (globalThis.ANDROID === true) {
         const tag = type === 'avatar' ? 'avatarimage' : 'worldimage';
         const uploaded = await request('file/image', {
             uploadImage: true,
