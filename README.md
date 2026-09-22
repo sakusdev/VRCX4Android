@@ -141,3 +141,26 @@ To see VRChat's stance on API usage, see the #faq channel in the VRChat Discord.
 ---
 
 VRCX is not endorsed by VRChat and does not reflect the views or opinions of VRChat or anyone officially involved in producing or managing VRChat properties. VRChat and all associated properties are trademarks or registered trademarks of VRChat Inc. VRChat © VRChat Inc.
+
+
+## Unofficial Android port (experimental)
+
+This fork is an unofficial Android port of [VRCX](https://github.com/vrcx-team/VRCX). It uses VRCX's Vue 3/Vite dependencies and VRChat API endpoint conventions with an Android-specific renderer and native HTTP bridge. It is **not** a release from VRCX Team. The MIT license and upstream attribution remain in place.
+
+### Requirements and build
+
+- Node.js >= 24.15, npm >= 11.5, JDK 17, Android SDK Platform 35, and Gradle 8.10.2.
+- Run `npm ci && npm run android:web && cd android && gradle assembleDebug`.
+- Install `android/app/build/outputs/apk/debug/app-debug.apk` on an Android 8.0+ device. The Android CI workflow uploads this debug APK as an artifact. Debug signing is provided by the Android tooling; no signing key is checked in.
+- For local development, rerun `npm run android:web` before the Gradle build after changing the Vue renderer. The build task copies `build/android` into Android assets.
+
+### Features and architecture
+
+The Android WebView loads bundled Vue assets. A narrow Java bridge handles HTTPS calls to the VRChat API, cookie persistence encrypted with an Android Keystore AES-GCM key, and the system image picker. The renderer never receives cookies and does not save passwords. The API request shapes and endpoints follow the upstream VRCX API modules. The Android UI currently offers login, OTP/TOTP/email OTP, friends, world search/details, own worlds, avatars, groups, favorites, notifications, basic world/avatar editing, and a gallery image upload attempt. A successful image change is confirmed by reading the returned entity image URL.
+
+**Limitations:** This is an experimental milestone, not yet a verified functional port. In particular, upstream's current world/avatar image dialog uses a signed, multipart File API sequence; this first Android build uses the simpler `file/image` route also present in VRCX's API modules. That route must be checked against live VRChat before image replacement can be considered supported. The desktop history database, feed, log watcher, SteamVR/overlay, VRChat process state, Discord integration, and desktop-only settings are unavailable in the Android UI. The Android renderer does not yet reuse all desktop views or coordinators. No live-account, device boot, or image upload result is asserted by this README.
+
+### Upstream sync
+
+Keep Android Java code in `android/` and the renderer in `src/mobile/`. Upstream desktop files remain untouched except for build metadata. Merge upstream `master` regularly and resolve only shared API changes needed by the mobile renderer.
+

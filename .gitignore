@@ -16,3 +16,8 @@ AGENTS.md
 AI_GUIDE.md
 CLAUDE.md
 coverage/
+
+android/.gradle/
+android/app/build/
+android/app/src/main/assets/
+
