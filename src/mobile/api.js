@@ -20,8 +20,11 @@ export async function request(endpoint, { method = 'GET', params, imageData, tag
     });
     let data = null;
     if (result.body) {
-        try { data = JSON.parse(result.body); }
-        catch { data = result.body; }
+        try {
+            data = JSON.parse(result.body);
+        } catch {
+            data = result.body;
+        }
     }
     if (result.status < 200 || result.status >= 300 || data?.error) {
         const error = new Error(data?.error?.message || `HTTP ${result.status}`);
@@ -38,7 +41,8 @@ export async function login(username, password) {
 }
 
 export const session = () => request('auth/user');
-export const verify = (method, code) => request(`auth/twofactorauth/${method.toLowerCase()}/verify`, { method: 'POST', params: { code } });
+export const verify = (method, code) =>
+    request(`auth/twofactorauth/${method.toLowerCase()}/verify`, { method: 'POST', params: { code } });
 export const logout = () => invoke('logout');
 export const friends = () => request('auth/user/friends', { params: { n: 100, offset: 0 } });
 export const worlds = (search) => request('worlds', { params: { search, n: 30 } });
@@ -59,9 +63,10 @@ export async function uploadImage(kind, entity, imageData) {
     const uploaded = await request('file/image', { method: 'POST', tag, imageData });
     const imageUrl = uploaded.fileUrl || uploaded.url;
     if (!imageUrl || !imageUrl.startsWith('https://')) throw new Error('File API returned no image URL');
-    const updated = kind === 'world'
-        ? await saveWorld(entity.id, { id: entity.id, imageUrl })
-        : await saveAvatar(entity.id, { id: entity.id, imageUrl });
+    const updated =
+        kind === 'world'
+            ? await saveWorld(entity.id, { id: entity.id, imageUrl })
+            : await saveAvatar(entity.id, { id: entity.id, imageUrl });
     if (updated.imageUrl !== imageUrl) throw new Error('Image URL was not confirmed by VRChat');
     return updated;
 }
