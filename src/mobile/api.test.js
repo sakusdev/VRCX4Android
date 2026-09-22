@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const invoke = vi.fn();
+const { invoke } = vi.hoisted(() => ({
+    invoke: vi.fn()
+}));
 
 vi.mock('./bridge', () => ({
     invoke
