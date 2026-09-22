@@ -10,11 +10,11 @@ import android.webkit.ConsoleMessage;
 import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
-import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
 import android.widget.Toast;
+import androidx.webkit.WebResourceErrorCompat;
 import androidx.webkit.WebViewAssetLoader;
 import androidx.webkit.WebViewClientCompat;
 import org.json.JSONObject;
@@ -68,7 +68,7 @@ public final class MainActivity extends Activity {
             @Override public void onReceivedError(
                 WebView view,
                 WebResourceRequest request,
-                WebResourceError error
+                WebResourceErrorCompat error
             ) {
                 if (request.isForMainFrame()) {
                     Log.e(TAG, "WebView load failed: " + error.getDescription());
