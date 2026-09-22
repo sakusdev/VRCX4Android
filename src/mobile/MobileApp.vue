@@ -266,17 +266,7 @@
                 sourceHeight = img.width / targetRatio;
                 sourceY = (img.height - sourceHeight) / 2;
             }
-            context.drawImage(
-                img,
-                sourceX,
-                sourceY,
-                sourceWidth,
-                sourceHeight,
-                0,
-                0,
-                canvas.width,
-                canvas.height
-            );
+            context.drawImage(img, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height);
             img.close();
             preview.value = canvas.toDataURL('image/png');
             imageData.value = preview.value.split(',')[1];
