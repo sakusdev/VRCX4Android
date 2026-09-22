@@ -46,9 +46,15 @@ export const verify = (method, code) =>
 export const logout = () => invoke('logout');
 export const friends = () => request('auth/user/friends', { params: { n: 100, offset: 0 } });
 export const worlds = (search) => request('worlds', { params: { search, n: 30 } });
-export const myWorlds = (id) => request('worlds', { params: { userId: id, n: 100 } });
-export const avatars = (id) => request('avatars', { params: { userId: id, n: 100 } });
-export const groups = (id) => request(`users/${encodeURIComponent(id)}/groups`, { params: { n: 100 } });
+export const myWorlds = () =>
+    request('worlds', {
+        params: { n: 50, offset: 0, sort: 'updated', order: 'descending', releaseStatus: 'all', user: 'me' }
+    });
+export const avatars = () =>
+    request('avatars', {
+        params: { n: 50, offset: 0, sort: 'updated', order: 'descending', releaseStatus: 'all', user: 'me' }
+    });
+export const groups = (id) => request(`users/${encodeURIComponent(id)}/groups`);
 export const favorites = () => request('favorites', { params: { n: 100 } });
 export const notifications = () => request('notifications', { params: { n: 100 } });
 export const getWorld = (id) => request(`worlds/${encodeURIComponent(id)}`);
