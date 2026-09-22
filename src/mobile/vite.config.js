@@ -21,7 +21,7 @@ export default defineConfig({
     resolve: { alias: { '@': resolve(import.meta.dirname, '..') } },
     define: {
         VERSION: JSON.stringify(version),
-        NIGHTLY: 'true',
+        NIGHTLY: 'false',
         WINDOWS: 'false',
         LINUX: 'true',
         ANDROID: 'true'
