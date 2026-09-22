@@ -34,7 +34,7 @@ describe('Android API adapter', () => {
         expect(url.searchParams.get('n')).toBe('30');
     });
 
-    it('matches upstream parameters when listing the current user's worlds', async () => {
+    it("matches upstream parameters when listing the current user's worlds", async () => {
         invoke.mockResolvedValue({
             status: 200,
             body: '[]'
