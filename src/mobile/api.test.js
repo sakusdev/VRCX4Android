@@ -34,6 +34,27 @@ describe('Android API adapter', () => {
         expect(url.searchParams.get('n')).toBe('30');
     });
 
+    it('matches upstream parameters when listing the current user's worlds', async () => {
+        invoke.mockResolvedValue({
+            status: 200,
+            body: '[]'
+        });
+
+        await api.myWorlds();
+
+        const url = new URL(invoke.mock.calls[0][1].url);
+        expect(url.pathname).toBe('/api/1/worlds');
+        expect(Object.fromEntries(url.searchParams)).toMatchObject({
+            n: '50',
+            offset: '0',
+            sort: 'updated',
+            order: 'descending',
+            releaseStatus: 'all',
+            user: 'me'
+        });
+        expect(url.searchParams.has('userId')).toBe(false);
+    });
+
     it('uses the newest /file/image version URL before updating a world', async () => {
         const imageUrl = 'https://api.vrchat.cloud/api/1/file/file_test/3/file';
         invoke
