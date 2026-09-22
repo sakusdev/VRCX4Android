@@ -61,7 +61,9 @@ export async function uploadImage(kind, entity, imageData) {
     // A failed upload never mutates the entity.
     const tag = kind === 'world' ? 'worldimage' : 'avatarimage';
     const uploaded = await request('file/image', { method: 'POST', tag, imageData });
-    const imageUrl = uploaded.fileUrl || uploaded.url;
+    // VRCX's Linux path uses /file/image and reads the URL from the newest file version.
+    const latestVersion = uploaded.versions?.[uploaded.versions.length - 1];
+    const imageUrl = latestVersion?.file?.url || uploaded.fileUrl || uploaded.url;
     if (!imageUrl || !imageUrl.startsWith('https://')) throw new Error('File API returned no image URL');
     const updated =
         kind === 'world'
