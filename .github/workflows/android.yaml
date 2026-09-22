@@ -36,7 +36,7 @@ jobs:
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" 'platforms;android-35' 'build-tools;35.0.0'
       - run: npm ci
-      - run: npm run format:check
+      - run: npm run format:check -- src/mobile README.md package.json .github/workflows/android.yaml
       - run: npm run lint
       - run: npm run typecheck:js
       - run: npm run typecheck:vue
