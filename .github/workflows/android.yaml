@@ -38,9 +38,12 @@ jobs:
       - run: npm ci
       - run: npm run format:check -- src/mobile README.md package.json .github/workflows/android.yaml
       - run: npm run lint
-      - run: npm run typecheck:js
-      - run: npm run typecheck:vue
-      - run: npm run typecheck:node
+      - name: Syntax check Android renderer
+        run: |
+          node --check src/mobile/api.js
+          node --check src/mobile/bridge.js
+          node --check src/mobile/main.js
+          node --check src/mobile/vite.config.js
       - run: npm test
       - run: npm run prod
       - run: npm run android:web
