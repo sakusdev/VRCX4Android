@@ -1,6 +1,6 @@
 import { toast } from 'vue-sonner';
 
-import { $throw } from '../services/request';
+import { $throw, request } from '../services/request';
 import { AppDebug } from '../services/appConfig.js';
 import { extractFileId } from '../shared/utils';
 import { imageRequest } from '../api';
@@ -114,6 +114,29 @@ export async function uploadImageLegacy(type, { entityId, imageUrl, base64File, 
         }
     };
     const api = apiMap[type];
+
+    // Android deliberately reuses the upstream /file/image path used by VRCX's
+    // Linux image APIs. It avoids pulling the desktop librsync signer into the
+    // Android shell while keeping the existing desktop crop/dialog UI intact.
+    if (typeof ANDROID !== 'undefined' && ANDROID) {
+        const tag = type === 'avatar' ? 'avatarimage' : 'worldimage';
+        const uploaded = await request('file/image', {
+            uploadImage: true,
+            matchingDimensions: false,
+            postData: JSON.stringify({ tag }),
+            imageData: base64File
+        });
+        const latestVersion = uploaded.versions?.[uploaded.versions.length - 1];
+        const newImageUrl = latestVersion?.file?.url;
+        if (!newImageUrl) {
+            $throw(0, `${type} image upload returned no file URL`, 'file/image');
+        }
+        const setRes = await api.setImage({ id: entityId, imageUrl: newImageUrl });
+        if (setRes.json.imageUrl !== newImageUrl) {
+            $throw(0, `${type} image change failed`, newImageUrl);
+        }
+        return;
+    }
 
     const fileMd5 = await AppApi.MD5File(base64File);
     const fileSizeInBytes = parseInt(blob.size, 10);
