@@ -9,6 +9,7 @@ const version = fs.readFileSync(new URL('../../Version', import.meta.url), 'utf-
 
 export default defineConfig({
     root: resolve(import.meta.dirname, '../..'),
+    publicDir: resolve(import.meta.dirname, '../public'),
     base: './',
     plugins: [
         vue(),
