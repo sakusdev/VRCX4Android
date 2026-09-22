@@ -55,7 +55,7 @@ public final class MainActivity extends Activity {
         webView.getSettings().setJavaScriptEnabled(true);
         webView.getSettings().setAllowFileAccess(false);
         webView.getSettings().setAllowContentAccess(false);
-        webView.getSettings().setDomStorageEnabled(false);
+        webView.getSettings().setDomStorageEnabled(true);
         webView.addJavascriptInterface(new Bridge(), "VrcxAndroid");
         webView.setWebViewClient(new WebViewClientCompat() {
             @Override
