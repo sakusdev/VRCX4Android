@@ -5,67 +5,142 @@ import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.Log;
+import android.webkit.ConsoleMessage;
 import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
-import android.webkit.WebView;
-import android.webkit.WebViewClient;
+import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
-import android.view.View;
-import android.view.WindowInsets;
+import android.webkit.WebResourceResponse;
+import android.webkit.WebView;
+import android.widget.Toast;
+import androidx.webkit.WebViewAssetLoader;
+import androidx.webkit.WebViewClientCompat;
 import org.json.JSONObject;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public final class MainActivity extends Activity {
+    private static final String TAG = "VRCXAndroid";
+    private static final String WEB_HOST = "appassets.androidplatform.net";
+    private static final String WEB_ENTRY = "https://" + WEB_HOST + "/assets/src/mobile/index.html";
+    private static final int FILE_PICKER = 13;
+
     private WebView webView;
     private ValueCallback<Uri[]> fileCallback;
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
-    private static final int FILE_PICKER = 13;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         getWindow().setStatusBarColor(0xff242930);
         getWindow().setNavigationBarColor(0xff16191e);
+
+        final WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
+            .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
+            .build();
+
         webView = new WebView(this);
         webView.setBackgroundColor(0xff16191e);
         webView.getSettings().setJavaScriptEnabled(true);
-        webView.getSettings().setAllowFileAccess(true);
-        webView.getSettings().setAllowFileAccessFromFileURLs(false);
-        webView.getSettings().setAllowUniversalAccessFromFileURLs(false);
+        webView.getSettings().setAllowFileAccess(false);
+        webView.getSettings().setAllowContentAccess(false);
         webView.getSettings().setDomStorageEnabled(false);
         webView.addJavascriptInterface(new Bridge(), "VrcxAndroid");
-        webView.setWebViewClient(new WebViewClient() {
+        webView.setWebViewClient(new WebViewClientCompat() {
+            @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                return assetLoader.shouldInterceptRequest(request.getUrl());
+            }
+
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
-                if ("file".equals(uri.getScheme()) && uri.toString().startsWith("file:///android_asset/src/mobile/")) return false;
+                if ("https".equals(uri.getScheme()) && WEB_HOST.equals(uri.getHost())) return false;
                 if ("https".equals(uri.getScheme())) {
-                    try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); } catch (ActivityNotFoundException ignored) { }
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW, uri));
+                    } catch (ActivityNotFoundException ignored) {
+                    }
                 }
                 return true;
             }
+
+            @Override public void onReceivedError(
+                WebView view,
+                WebResourceRequest request,
+                WebResourceError error
+            ) {
+                if (request.isForMainFrame()) {
+                    Log.e(TAG, "WebView load failed: " + error.getDescription());
+                    Toast.makeText(
+                        MainActivity.this,
+                        "VRCX UI load failed: " + error.getDescription(),
+                        Toast.LENGTH_LONG
+                    ).show();
+                }
+            }
+
+            @Override public void onPageFinished(WebView view, String url) {
+                view.postDelayed(
+                    () ->
+                        view.evaluateJavascript(
+                            "(function(){var r=document.getElementById('root');return r&&r.children.length?'ok':'empty';})()",
+                            value -> {
+                                if (!"\"ok\"".equals(value)) {
+                                    Log.e(TAG, "Vue renderer did not mount; root state=" + value);
+                                    Toast.makeText(
+                                        MainActivity.this,
+                                        "VRCX UI failed to start. Check logcat tag VRCXAndroid.",
+                                        Toast.LENGTH_LONG
+                                    ).show();
+                                }
+                            }
+                        ),
+                    1500
+                );
+            }
         });
         webView.setWebChromeClient(new WebChromeClient() {
-            @Override public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
+            @Override public boolean onConsoleMessage(ConsoleMessage message) {
+                Log.d(
+                    TAG,
+                    "JS " + message.messageLevel() + ": " + message.message()
+                        + " (" + message.sourceId() + ":" + message.lineNumber() + ")"
+                );
+                return true;
+            }
+
+            @Override public boolean onShowFileChooser(
+                WebView view,
+                ValueCallback<Uri[]> callback,
+                FileChooserParams params
+            ) {
                 if (fileCallback != null) fileCallback.onReceiveValue(null);
                 fileCallback = callback;
                 Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
                 intent.setType("image/*");
                 intent.addCategory(Intent.CATEGORY_OPENABLE);
-                try { startActivityForResult(Intent.createChooser(intent, "Choose image"), FILE_PICKER); }
-                catch (ActivityNotFoundException e) { fileCallback = null; callback.onReceiveValue(null); }
+                try {
+                    startActivityForResult(Intent.createChooser(intent, "Choose image"), FILE_PICKER);
+                } catch (ActivityNotFoundException e) {
+                    fileCallback = null;
+                    callback.onReceiveValue(null);
+                }
                 return true;
             }
         });
         setContentView(webView);
-        webView.loadUrl("file:///android_asset/src/mobile/index.html");
+        webView.loadUrl(WEB_ENTRY);
     }
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == FILE_PICKER && fileCallback != null) {
-            fileCallback.onReceiveValue(resultCode == RESULT_OK && data != null && data.getData() != null
-                ? new Uri[] { data.getData() } : null);
+            fileCallback.onReceiveValue(
+                resultCode == RESULT_OK && data != null && data.getData() != null
+                    ? new Uri[] { data.getData() }
+                    : null
+            );
             fileCallback = null;
         }
     }
@@ -94,20 +169,43 @@ public final class MainActivity extends Activity {
                     String action = input.getString("action");
                     Object value;
                     switch (action) {
-                        case "login": value = api.login(input.getString("username"), input.getString("password")); break;
-                        case "request": value = api.request(input); break;
-                        case "logout": api.clearSession(); value = true; break;
-                        case "background": runOnUiThread(() -> moveTaskToBack(true)); value = true; break;
-                        default: throw new IllegalArgumentException("Unsupported action");
+                        case "login":
+                            value = api.login(input.getString("username"), input.getString("password"));
+                            break;
+                        case "request":
+                            value = api.request(input);
+                            break;
+                        case "logout":
+                            api.clearSession();
+                            value = true;
+                            break;
+                        case "background":
+                            runOnUiThread(() -> moveTaskToBack(true));
+                            value = true;
+                            break;
+                        default:
+                            throw new IllegalArgumentException("Unsupported action");
                     }
                     result.put("value", value);
                 } catch (Exception e) {
-                    try { result.put("error", e.getMessage() == null ? "Native operation failed" : e.getMessage()); }
-                    catch (Exception ignored) { result = new JSONObject(); }
+                    try {
+                        result.put(
+                            "error",
+                            e.getMessage() == null ? "Native operation failed" : e.getMessage()
+                        );
+                    } catch (Exception ignored) {
+                        result = new JSONObject();
+                    }
                 }
                 final int responseId = id;
                 final String response = result.toString();
-                runOnUiThread(() -> webView.evaluateJavascript("window.vrcxAndroidResponse(" + responseId + "," + response + ")", null));
+                runOnUiThread(
+                    () ->
+                        webView.evaluateJavascript(
+                            "window.vrcxAndroidResponse(" + responseId + "," + response + ")",
+                            null
+                        )
+                );
             });
         }
     }
