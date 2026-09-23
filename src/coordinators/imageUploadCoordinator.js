@@ -80,8 +80,67 @@ export function handleImageUploadInput(event, options = {}) {
  * @returns {Promise<string>} Resized base64 encoded image
  */
 export async function resizeImageToFitLimits(base64Data) {
-    // frontend limit check = 20MB
-    return AppApi.ResizeImageToFitLimits(base64Data);
+    if (globalThis.ANDROID !== true) {
+        return AppApi.ResizeImageToFitLimits(base64Data);
+    }
+
+    const maxWidth = 2000;
+    const maxHeight = 2000;
+    const maxSize = 10_000_000;
+
+    const image = await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = `data:image/png;base64,${base64Data}`;
+    });
+
+    let width = image.width;
+    let height = image.height;
+
+    if (width > maxWidth) {
+        const factor = width / maxWidth;
+        width = maxWidth;
+        height = Math.round(height / factor);
+    }
+    if (height > maxHeight) {
+        const factor = height / maxHeight;
+        height = maxHeight;
+        width = Math.round(width / factor);
+    }
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    const render = (w, h) => {
+        canvas.width = Math.max(1, w);
+        canvas.height = Math.max(1, h);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+        return canvas.toDataURL('image/png').split(',', 2)[1];
+    };
+
+    let resized = render(width, height);
+    const decodedSize = (value) => Math.floor((value.length * 3) / 4);
+
+    for (let i = 0; i < 250 && decodedSize(resized) > maxSize; i++) {
+        if (width > height) {
+            const nextWidth = Math.max(1, width - 25);
+            height = Math.max(1, Math.round(height / (width / nextWidth)));
+            width = nextWidth;
+        } else {
+            const nextHeight = Math.max(1, height - 25);
+            width = Math.max(1, Math.round(width / (height / nextHeight)));
+            height = nextHeight;
+        }
+        resized = render(width, height);
+    }
+
+    if (decodedSize(resized) > maxSize) {
+        throw new Error('Failed to get image into target filesize.');
+    }
+
+    return resized;
 }
 
 /**
