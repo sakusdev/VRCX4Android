@@ -1,54 +1,10 @@
 import './android.css';
-import { invoke } from './bridge';
+import './platform.js';
 
-// Keep the upstream VRCX renderer intact. Android replaces only the platform
-// services normally supplied by Electron/.NET.
-globalThis.WINDOWS = false;
-globalThis.LINUX = true;
-globalThis.ANDROID = true;
-window.isVrOverlay = false;
-document.documentElement.classList.add('vrcx-android');
+// Keep the actual upstream VRCX renderer as a static dependency.
+// This intentionally matches the desktop entry-point evaluation order;
+// using a dynamic import here can break Pinia's circular module graph.
+import '../app.js';
 
-window.interopApi = {
-    callDotNetMethod(className, methodName, args = []) {
-        return invoke('interop', { className, methodName, args });
-    }
-};
-
-const noopSubscription = () => () => {};
-window.electron = {
-    getArch: async () => 'arm64',
-    getClipboardText: async () => navigator.clipboard?.readText?.().catch(() => '') ?? '',
-    getNoUpdater: async () => true,
-    setTrayIconNotification: async () => {},
-    openFileDialog: async () => null,
-    openDirectoryDialog: async () => null,
-    onWindowPositionChanged: noopSubscription,
-    onWindowSizeChanged: noopSubscription,
-    onWindowStateChange: noopSubscription,
-    onBrowserFocus: noopSubscription,
-    desktopNotification: async (title, body) => {
-        console.info('[Android notification]', title, body);
-    },
-    restartApp: async () => location.reload(),
-    getOverlayWindow: async () => false,
-    updateVr: async () => false,
-    ipcRenderer: {
-        on: noopSubscription
-    }
-};
-
-window.vrcxAndroidBack = () => {
-    if (history.length > 1) history.back();
-    else invoke('background').catch(() => {});
-};
-
-// This is the real desktop renderer entry point, not a mobile reimplementation.
-try {
-    await import('../app.js');
-    document.documentElement.dataset.vrcxMounted = 'true';
-    console.info('VRCX_ANDROID_RENDERER_MOUNTED');
-} catch (error) {
-    console.error('VRCX_ANDROID_RENDERER_FAILED', error);
-    throw error;
-}
+document.documentElement.dataset.vrcxMounted = 'true';
+console.info('VRCX_ANDROID_RENDERER_MOUNTED');
