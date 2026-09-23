@@ -44,4 +44,11 @@ window.vrcxAndroidBack = () => {
 };
 
 // This is the real desktop renderer entry point, not a mobile reimplementation.
-await import('../app.js');
+try {
+    await import('../app.js');
+    document.documentElement.dataset.vrcxMounted = 'true';
+    console.info('VRCX_ANDROID_RENDERER_MOUNTED');
+} catch (error) {
+    console.error('VRCX_ANDROID_RENDERER_FAILED', error);
+    throw error;
+}
