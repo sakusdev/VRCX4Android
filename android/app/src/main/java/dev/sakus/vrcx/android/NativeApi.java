@@ -208,6 +208,10 @@ final class NativeApi {
             case "SetStartup":
             case "CropAllPrints":
             case "DeleteAllScreenshotMetadata":
+            case "ChangeTheme":
+            case "SendIpc":
+            case "SetVRChatRegistryKey":
+            case "VrcClosedGracefully":
                 return JSONObject.NULL;
 
             case "CurrentCulture":
@@ -227,6 +231,9 @@ final class NativeApi {
                 // empty iterable for Object.fromEntries() in the desktop renderer.
                 return new JSONArray();
 
+            case "GetVRChatUserModeration":
+                return 0;
+
             case "GetLaunchCommand":
             case "GetVRChatRegistryJson":
             case "GetVRChatRegistryKeyString":
@@ -236,6 +243,8 @@ final class NativeApi {
             case "GetScreenshotFolder":
             case "OpenFolderSelectorDialog":
             case "OpenUGCPhotosFolder":
+            case "CustomCss":
+            case "CustomScript":
                 return "";
 
             case "HasVRChatRegistryFolder":
@@ -244,6 +253,7 @@ final class NativeApi {
             case "TryOpenInstanceInVrc":
             case "StartGameFromPath":
             case "StartGame":
+            case "QuitGame":
                 return false;
 
             case "OpenLink":
@@ -267,17 +277,27 @@ final class NativeApi {
     }
 
     private Object logWatcherInterop(String methodName) {
-        if ("GetLogLines".equals(methodName)) {
-            return new JSONArray();
+        switch (methodName) {
+            case "Get":
+            case "GetLogLines":
+                return new JSONArray();
+            case "SetDateTill":
+            case "Reset":
+                return JSONObject.NULL;
+            default:
+                return platformNoop(methodName);
         }
-        return platformNoop(methodName);
     }
 
     private Object assetBundleManagerInterop(String methodName) {
-        if ("GetCacheSize".equals(methodName)) {
-            return 0L;
+        switch (methodName) {
+            case "GetCacheSize":
+                return 0L;
+            case "SweepCache":
+                return JSONObject.NULL;
+            default:
+                return platformNoop(methodName);
         }
-        return platformNoop(methodName);
     }
 
     private boolean openExternalLink(String value) {
