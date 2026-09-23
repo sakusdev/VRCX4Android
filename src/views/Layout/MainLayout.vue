@@ -16,6 +16,11 @@
                     @pointerdown.prevent="startNavResize" />
 
                 <SidebarInset class="min-w-0 bg-sidebar">
+                    <div
+                        v-if="showAndroidNavTrigger"
+                        class="flex h-12 shrink-0 items-center border-b border-border px-2">
+                        <SidebarTrigger class="size-10" />
+                    </div>
                     <ResizablePanelGroup
                         direction="horizontal"
                         auto-save-id="vrcx-main-layout-right-sidebar"
@@ -81,10 +86,11 @@
 <script setup>
     import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
     import { storeToRefs } from 'pinia';
+    import { useMediaQuery } from '@vueuse/core';
     import { useRouter } from 'vue-router';
 
     import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '../../components/ui/resizable';
-    import { SidebarInset, SidebarProvider } from '../../components/ui/sidebar';
+    import { SidebarInset, SidebarProvider, SidebarTrigger } from '../../components/ui/sidebar';
     import { useAppearanceSettingsStore } from '../../stores';
     import { useMainLayoutResizable } from '../../composables/useMainLayoutResizable';
     import { watchState } from '../../services/watchState';
@@ -112,6 +118,8 @@
     import SpotlightDialog from '../../components/onboarding/SpotlightDialog.vue';
 
     const router = useRouter();
+    const isMobile = useMediaQuery('(max-width: 768px)');
+    const showAndroidNavTrigger = computed(() => globalThis.ANDROID === true && isMobile.value);
 
     const appearanceSettingsStore = useAppearanceSettingsStore();
     const { navWidth, isNavCollapsed } = storeToRefs(appearanceSettingsStore);

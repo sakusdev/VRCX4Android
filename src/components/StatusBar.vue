@@ -34,7 +34,7 @@
                         </TooltipWrapper>
 
                         <TooltipWrapper
-                            v-if="!isMacOS && visibility.steamvr"
+                            v-if="!isMacOS && !isAndroid && visibility.steamvr"
                             :content="
                                 gameStore.isSteamVRRunning
                                     ? t('status_bar.steamvr_running')
@@ -303,7 +303,7 @@
                     {{ t('status_bar.servers') }}
                 </ContextMenuCheckboxItem>
                 <ContextMenuCheckboxItem
-                    v-if="!isMacOS"
+                    v-if="!isMacOS && !isAndroid"
                     :model-value="visibility.steamvr"
                     @select.prevent
                     @update:model-value="toggleVisibility('steamvr')">
@@ -434,6 +434,7 @@
     const { t } = useI18n();
 
     const isMacOS = computed(() => navigator.platform.includes('Mac'));
+    const isAndroid = computed(() => globalThis.ANDROID === true);
     const isLinux = computed(() => LINUX);
 
     const gameStore = useGameStore();
