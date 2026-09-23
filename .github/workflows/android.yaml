@@ -52,12 +52,13 @@ jobs:
         run: |
           node --check src/mobile/bridge.js
           node --check src/mobile/main.js
+          node --check src/mobile/platform.js
           node --check src/mobile/vite.config.js
       - name: Verify upstream desktop renderer reuse
         run: |
           test ! -e src/mobile/MobileApp.vue
           test ! -e src/mobile/api.js
-          grep -Fq "await import('../app.js')" src/mobile/main.js
+          grep -Fq "import '../app.js';" src/mobile/main.js
       - name: Verify Android application identity
         run: |
           grep -Fq "namespace 'org.sakus.vrcx4a'" android/app/build.gradle
