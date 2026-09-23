@@ -14,6 +14,7 @@ import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
+import android.widget.TextView;
 import android.widget.Toast;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -39,6 +40,15 @@ public final class MainActivity extends Activity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        try {
+            initializeWebView();
+        } catch (Throwable error) {
+            Log.e(TAG, "Fatal startup error", error);
+            showStartupError(error);
+        }
+    }
+
+    private void initializeWebView() {
         getWindow().setStatusBarColor(0xff242930);
         getWindow().setNavigationBarColor(0xff16191e);
 
@@ -163,6 +173,23 @@ public final class MainActivity extends Activity {
         webView.loadUrl(WEB_ENTRY);
     }
 
+    private void showStartupError(Throwable error) {
+        TextView message = new TextView(this);
+        message.setTextColor(0xffeeeeee);
+        message.setBackgroundColor(0xff16191e);
+        message.setPadding(32, 48, 32, 32);
+        message.setTextSize(16f);
+        String detail = error.getClass().getSimpleName();
+        if (error.getMessage() != null && !error.getMessage().isEmpty()) {
+            detail += ": " + error.getMessage();
+        }
+        message.setText(
+            "VRCX4Android failed to start.\n\n" + detail
+                + "\n\nIf reporting this, include logcat tag " + TAG + "."
+        );
+        setContentView(message);
+    }
+
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == FILE_PICKER && fileCallback != null) {
@@ -184,13 +211,19 @@ public final class MainActivity extends Activity {
     }
 
     @Override public void onBackPressed() {
-        webView.evaluateJavascript("window.vrcxAndroidBack && window.vrcxAndroidBack()", null);
+        if (webView != null) {
+            webView.evaluateJavascript("window.vrcxAndroidBack && window.vrcxAndroidBack()", null);
+        } else {
+            super.onBackPressed();
+        }
     }
 
     @Override protected void onDestroy() {
         if (fileCallback != null) fileCallback.onReceiveValue(null);
         worker.shutdownNow();
-        webView.destroy();
+        if (webView != null) {
+            webView.destroy();
+        }
         super.onDestroy();
     }
 
