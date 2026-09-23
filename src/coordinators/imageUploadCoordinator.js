@@ -88,11 +88,19 @@ export async function resizeImageToFitLimits(base64Data) {
     const maxHeight = 2000;
     const maxSize = 10_000_000;
 
+    const imageBytes = Uint8Array.from(atob(base64Data), (char) => char.charCodeAt(0));
+    const imageUrl = URL.createObjectURL(new Blob([imageBytes]));
     const image = await new Promise((resolve, reject) => {
         const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = reject;
-        img.src = `data:image/png;base64,${base64Data}`;
+        img.onload = () => {
+            URL.revokeObjectURL(imageUrl);
+            resolve(img);
+        };
+        img.onerror = (error) => {
+            URL.revokeObjectURL(imageUrl);
+            reject(error);
+        };
+        img.src = imageUrl;
     });
 
     let width = image.width;
