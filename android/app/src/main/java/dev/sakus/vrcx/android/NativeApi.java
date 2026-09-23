@@ -392,7 +392,7 @@ final class NativeApi {
         }
     }
 
-    private JSONArray executeSqlQuery(String sql, JSONObject params) {
+    private JSONArray executeSqlQuery(String sql, JSONObject params) throws Exception {
         BoundSql bound = bindSql(sql, params);
         JSONArray rows = new JSONArray();
 
