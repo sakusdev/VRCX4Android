@@ -155,7 +155,16 @@ jobs:
 
           "$ADB" shell am force-stop org.sakus.vrcx4a
           "$ADB" shell am start -W -n org.sakus.vrcx4a/org.sakus.vrcx4a.MainActivity | tee start.txt
-          sleep 18
+
+          # onPageFinished waits 15 seconds before verifying the desktop login.
+          # Allow for cold WebView startup instead of sampling just before its callback.
+          for _ in $(seq 1 25); do
+            "$ADB" logcat -d -v brief > "$RUNNER_TEMP/vrcx-login-wait.log"
+            if grep -q 'VRCX_ANDROID_LOGIN_VISIBLE' "$RUNNER_TEMP/vrcx-login-wait.log"; then
+              break
+            fi
+            sleep 2
+          done
 
           "$ADB" shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity' | tee activity.txt
           grep -q 'org.sakus.vrcx4a' activity.txt
