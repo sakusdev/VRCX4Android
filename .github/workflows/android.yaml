@@ -88,8 +88,74 @@ jobs:
           name: vrcx-android-debug
           path: dist/*.apk
 
-  release:
+  smoke:
     needs: debug
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: vrcx-android-debug
+          path: dist
+      - name: Install Android emulator image
+        shell: bash
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort -V | tail -1)"
+          "$SDKMANAGER" 'emulator' 'system-images;android-35;google_apis;x86_64'
+      - name: Boot emulator and launch VRCX4Android
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          AVDMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name avdmanager | sort -V | tail -1)"
+          echo no | "$AVDMANAGER" create avd             --force             --name vrcx-ci             --package 'system-images;android-35;google_apis;x86_64'             --device pixel_6
+
+          ACCEL="-accel off"
+          if [[ -e /dev/kvm ]]; then
+            sudo chmod 666 /dev/kvm || true
+            ACCEL="-accel on"
+          fi
+
+          nohup "$SDK_ROOT/emulator/emulator"             -avd vrcx-ci             -no-window             -noaudio             -no-boot-anim             -no-snapshot             -wipe-data             -gpu swiftshader_indirect             $ACCEL > emulator.log 2>&1 &
+
+          adb wait-for-device
+          timeout 300 bash -c 'until [[ "$(adb shell getprop sys.boot_completed | tr -d "\r")" == "1" ]]; do sleep 2; done'
+
+          APK="$(find dist -maxdepth 1 -type f -name '*.apk' | head -1)"
+          test -n "$APK"
+          adb install -r "$APK"
+          adb logcat -c
+
+          adb shell am force-stop org.sakus.vrcx4a
+          adb shell am start -W -n org.sakus.vrcx4a/org.sakus.vrcx4a.MainActivity | tee start.txt
+          sleep 8
+
+          adb shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity' | tee activity.txt
+          grep -q 'org.sakus.vrcx4a' activity.txt
+
+          PID="$(adb shell pidof org.sakus.vrcx4a | tr -d '\r')"
+          test -n "$PID"
+
+          adb exec-out screencap -p > vrcx-smoke.png
+          adb logcat -d -v threadtime > logcat.txt
+      - name: Upload smoke-test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vrcx-android-smoke
+          path: |
+            emulator.log
+            start.txt
+            activity.txt
+            logcat.txt
+            vrcx-smoke.png
+          if-no-files-found: ignore
+
+  release:
+    needs: [debug, smoke]
     if: >-
       (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
       (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
