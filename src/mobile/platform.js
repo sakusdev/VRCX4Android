@@ -11,7 +11,6 @@ import { invoke } from './bridge';
 // but the Android bootstrap must make that ordering explicit.
 setActivePinia(pinia);
 
-
 globalThis.WINDOWS = false;
 globalThis.LINUX = true;
 globalThis.ANDROID = true;
