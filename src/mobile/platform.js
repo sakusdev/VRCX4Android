@@ -1,7 +1,17 @@
+import { setActivePinia } from 'pinia';
+
+import { pinia } from '../stores';
 import { invoke } from './bridge';
 
 // Android replaces only the platform services normally supplied by Electron/.NET.
 // This module MUST be evaluated before the upstream src/app.js entry point.
+//
+// VRCX has a large circular module graph (plugins -> router -> views -> stores).
+// Electron's desktop entry happens to activate Pinia before component setup,
+// but the Android bootstrap must make that ordering explicit.
+setActivePinia(pinia);
+
+
 globalThis.WINDOWS = false;
 globalThis.LINUX = true;
 globalThis.ANDROID = true;
