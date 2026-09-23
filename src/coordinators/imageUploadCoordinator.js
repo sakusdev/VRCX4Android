@@ -186,7 +186,9 @@ export async function uploadImageLegacy(type, { entityId, imageUrl, base64File, 
     // Linux image APIs. It avoids pulling the desktop librsync signer into the
     // Android shell while keeping the existing desktop crop/dialog UI intact.
     if (globalThis.ANDROID === true) {
-        const tag = type === 'avatar' ? 'avatarimage' : 'worldimage';
+        // /file/image no longer accepts worldimage; use the supported gallery
+        // upload tag before applying its file URL to the world as usual.
+        const tag = type === 'avatar' ? 'avatarimage' : 'gallery';
         const uploaded = await request('file/image', {
             uploadImage: true,
             matchingDimensions: false,

@@ -119,7 +119,7 @@ final class NativeApi {
                 throw new SecurityException("Image upload must use the File API");
             }
             String tag = input.optString("tag", "");
-            if (!tag.equals("worldimage") && !tag.equals("avatarimage")) {
+            if (!tag.equals("gallery") && !tag.equals("avatarimage")) {
                 throw new SecurityException("Invalid image tag");
             }
             return execute(parsed, method, null, image, tag, null, null);
