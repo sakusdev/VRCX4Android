@@ -152,7 +152,7 @@ jobs:
 
           "$ADB" shell am force-stop org.sakus.vrcx4a
           "$ADB" shell am start -W -n org.sakus.vrcx4a/org.sakus.vrcx4a.MainActivity | tee start.txt
-          sleep 8
+          sleep 18
 
           "$ADB" shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity' | tee activity.txt
           grep -q 'org.sakus.vrcx4a' activity.txt
@@ -167,6 +167,7 @@ jobs:
             echo "VRCX4Android reached the native fallback/error screen." >&2
             exit 1
           fi
+          grep -q 'VRCX_ANDROID_RENDERER_MOUNTED' logcat.txt
       - name: Upload smoke-test diagnostics
         if: always()
         uses: actions/upload-artifact@v4
