@@ -113,6 +113,8 @@ jobs:
           SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
           AVDMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name avdmanager | sort -V | tail -1)"
           ADB="$SDK_ROOT/platform-tools/adb"
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/android-avd"
+          mkdir -p "$ANDROID_AVD_HOME"
           echo no | "$AVDMANAGER" create avd \
             --force \
             --name vrcx-ci \
