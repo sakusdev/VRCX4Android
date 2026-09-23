@@ -3,6 +3,8 @@ import { setActivePinia } from 'pinia';
 import { pinia } from '../stores';
 import { invoke } from './bridge';
 
+Error.stackTraceLimit = 30;
+
 // Android replaces only the platform services normally supplied by Electron/.NET.
 // This module MUST be evaluated before the upstream src/app.js entry point.
 //
