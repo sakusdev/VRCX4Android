@@ -14,6 +14,7 @@ import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.io.IOException;
 import java.io.OutputStream;
 import java.net.CookieManager;
 import java.net.CookiePolicy;
@@ -258,7 +259,6 @@ final class NativeApi {
 
             case "GetLaunchCommand":
             case "GetVRChatRegistryJson":
-            case "GetVRChatRegistryKeyString":
             case "GetVRChatPath":
             case "GetSteamPath":
             case "GetPicturesFolder":
@@ -268,6 +268,10 @@ final class NativeApi {
             case "CustomCss":
             case "CustomScript":
                 return "";
+
+            case "GetVRChatRegistryKeyString":
+                // There is no local VRChat installation on Android.
+                return JSONObject.NULL;
 
             case "HasVRChatRegistryFolder":
             case "IsGameRunning":
@@ -362,7 +366,15 @@ final class NativeApi {
             && url.getPort() == -1
             && url.getPath().startsWith("/api/1/");
 
-        if (!apiHost) {
+        boolean statusHost = "https".equals(url.getProtocol())
+            && "status.vrchat.com".equals(url.getHost())
+            && url.getPort() == -1
+            && (url.getPath().equals("/api/v2/status.json")
+                || url.getPath().equals("/api/v2/summary.json"))
+            && url.getQuery() == null
+            && method.equals("GET");
+
+        if (!apiHost && !statusHost) {
             throw new SecurityException("Desktop renderer request outside VRChat API");
         }
 
@@ -382,7 +394,16 @@ final class NativeApi {
             return executeMultipart(url, fields, "image", "image.png", imageData, headers);
         }
 
-        return execute(url, method, body, null, null, null, headers);
+        try {
+            return execute(url, method, body, null, null, null, headers);
+        } catch (IOException error) {
+            if (!statusHost) throw error;
+            // Statuspage is optional; keep the login view usable offline.
+            JSONObject unavailable = new JSONObject();
+            unavailable.put("status", 503);
+            unavailable.put("body", "");
+            return unavailable;
+        }
     }
 
     private JSONObject executeMultipart(

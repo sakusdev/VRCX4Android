@@ -19,6 +19,16 @@ globalThis.ANDROID = true;
 window.isVrOverlay = false;
 document.documentElement.classList.add('vrcx-android');
 
+// Android WebView does not always expose the browser speech synthesis API.
+// The desktop notification store still asks for an empty voice list on startup.
+if (!window.speechSynthesis) {
+    window.speechSynthesis = {
+        getVoices: () => [],
+        cancel: () => {},
+        speak: () => {}
+    };
+}
+
 window.interopApi = {
     callDotNetMethod(className, methodName, args = []) {
         return invoke('interop', { className, methodName, args });

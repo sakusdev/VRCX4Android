@@ -107,9 +107,19 @@ public final class MainActivity extends Activity {
                 view.postDelayed(
                     () ->
                         view.evaluateJavascript(
-                            "(function(){return document.documentElement.dataset.vrcxMounted==='true'?'ok':'empty';})()",
+                            "(function(){if(document.documentElement.dataset.vrcxMounted!=='true')return 'empty';"
+                                + "var form=document.getElementById('login-form');"
+                                + "var username=document.getElementById('login-form-username');"
+                                + "var password=document.getElementById('login-form-password');"
+                                + "var dialog=document.querySelector('[role=alertdialog],[role=dialog][data-state=open]');"
+                                + "return location.hash.startsWith('#/login')&&form&&username&&password"
+                                + "&&form.getBoundingClientRect().width>0&&!dialog?'login':'mounted';})()",
                             value -> {
-                                if (!"\"ok\"".equals(value)) {
+                                if ("\"login\"".equals(value)) {
+                                    Log.i(TAG, "VRCX_ANDROID_LOGIN_VISIBLE");
+                                } else if ("\"mounted\"".equals(value)) {
+                                    Log.e(TAG, "VRCX_ANDROID_LOGIN_FAILED: login form not visible or a dialog is open");
+                                } else {
                                     String detail = "Vue renderer did not mount; root state=" + value;
                                     if (!lastJsError.isEmpty()) {
                                         detail += "\nLast JS error: " + lastJsError;
