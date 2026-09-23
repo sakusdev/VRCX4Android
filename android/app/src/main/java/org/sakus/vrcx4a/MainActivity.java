@@ -34,6 +34,7 @@ public final class MainActivity extends Activity {
 
     private WebView webView;
     private ValueCallback<Uri[]> fileCallback;
+    private volatile String lastJsError = "";
     // Desktop VRCX performs API and database work concurrently. Keep a small
     // bounded pool so Android doesn't serialize every request through one thread.
     private final ExecutorService worker = Executors.newFixedThreadPool(4);
@@ -96,12 +97,9 @@ public final class MainActivity extends Activity {
                 WebResourceErrorCompat error
             ) {
                 if (request.isForMainFrame()) {
-                    Log.e(TAG, "WebView load failed: " + error.getDescription());
-                    Toast.makeText(
-                        MainActivity.this,
-                        "VRCX UI load failed: " + error.getDescription(),
-                        Toast.LENGTH_LONG
-                    ).show();
+                    String detail = "WebView load failed: " + error.getDescription();
+                    Log.e(TAG, detail);
+                    showStartupError(new IllegalStateException(detail));
                 }
             }
 
@@ -112,12 +110,12 @@ public final class MainActivity extends Activity {
                             "(function(){var r=document.getElementById('root');return r&&r.children.length?'ok':'empty';})()",
                             value -> {
                                 if (!"\"ok\"".equals(value)) {
-                                    Log.e(TAG, "Vue renderer did not mount; root state=" + value);
-                                    Toast.makeText(
-                                        MainActivity.this,
-                                        "VRCX UI failed to start. Check logcat tag VRCXAndroid.",
-                                        Toast.LENGTH_LONG
-                                    ).show();
+                                    String detail = "Vue renderer did not mount; root state=" + value;
+                                    if (!lastJsError.isEmpty()) {
+                                        detail += "\nLast JS error: " + lastJsError;
+                                    }
+                                    Log.e(TAG, detail);
+                                    showStartupError(new IllegalStateException(detail));
                                 }
                             }
                         ),
@@ -127,11 +125,13 @@ public final class MainActivity extends Activity {
         });
         webView.setWebChromeClient(new WebChromeClient() {
             @Override public boolean onConsoleMessage(ConsoleMessage message) {
-                Log.d(
-                    TAG,
+                String detail =
                     "JS " + message.messageLevel() + ": " + message.message()
-                        + " (" + message.sourceId() + ":" + message.lineNumber() + ")"
-                );
+                        + " (" + message.sourceId() + ":" + message.lineNumber() + ")";
+                Log.d(TAG, detail);
+                if (message.messageLevel() == ConsoleMessage.MessageLevel.ERROR) {
+                    lastJsError = detail;
+                }
                 return true;
             }
 
