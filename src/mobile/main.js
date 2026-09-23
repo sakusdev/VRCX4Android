@@ -1,3 +1,4 @@
+import './android.css';
 import { invoke } from './bridge';
 
 // Keep the upstream VRCX renderer intact. Android replaces only the platform
@@ -6,6 +7,7 @@ globalThis.WINDOWS = false;
 globalThis.LINUX = true;
 globalThis.ANDROID = true;
 window.isVrOverlay = false;
+document.documentElement.classList.add('vrcx-android');
 
 window.interopApi = {
     callDotNetMethod(className, methodName, args = []) {
