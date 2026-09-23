@@ -452,6 +452,10 @@ final class NativeApi {
     }
 
     private static BoundSql bindSql(String sql, JSONObject params) {
+        // sqlite_schema is an alias added by newer SQLite releases. Android 8/9
+        // can ship an older SQLite, while sqlite_master works on both old and new.
+        sql = sql.replace("sqlite_schema", "sqlite_master");
+
         if (params == null || params.length() == 0) return new BoundSql(sql, new ArrayList<>());
 
         Matcher matcher = SQL_PARAM.matcher(sql);
@@ -462,6 +466,7 @@ final class NativeApi {
             String key = matcher.group();
             Object value = params.opt(key);
             if (value == JSONObject.NULL) value = null;
+            if (value instanceof Boolean) value = ((Boolean) value) ? 1 : 0;
             values.add(value);
             matcher.appendReplacement(rewritten, "?");
         }
