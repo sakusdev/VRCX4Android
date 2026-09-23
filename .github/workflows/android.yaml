@@ -104,6 +104,7 @@ jobs:
         run: |
           SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
           SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort -V | tail -1)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" 'emulator' 'system-images;android-35;google_apis;x86_64'
       - name: Boot emulator and launch VRCX4Android
         shell: bash
