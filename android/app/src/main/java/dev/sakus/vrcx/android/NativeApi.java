@@ -1,7 +1,9 @@
 package dev.sakus.vrcx.android;
 
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.security.keystore.KeyGenParameterSpec;
@@ -26,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Matcher;
@@ -50,11 +53,13 @@ final class NativeApi {
     private static final Pattern SQL_PARAM = Pattern.compile("@[A-Za-z0-9_]+");
 
     private final CookieManager cookies = new CookieManager(null, CookiePolicy.ACCEPT_ORIGINAL_SERVER);
+    private final Context context;
     private final SharedPreferences prefs;
     private final SharedPreferences desktopPrefs;
     private final SQLiteDatabase database;
 
     NativeApi(Context context) {
+        this.context = context;
         prefs = context.getSharedPreferences("native_session", Context.MODE_PRIVATE);
         desktopPrefs = context.getSharedPreferences("vrcx_storage", Context.MODE_PRIVATE);
         database = context.openOrCreateDatabase("vrcx.db", Context.MODE_PRIVATE, null);
@@ -116,8 +121,11 @@ final class NativeApi {
             case "AppApi":
                 return appApiInterop(methodName, args);
             case "LogWatcher":
-            case "Discord":
+                return logWatcherInterop(methodName);
             case "AssetBundleManager":
+                return assetBundleManagerInterop(methodName);
+            case "Discord":
+                return JSONObject.NULL;
             case "AppApiVrElectron":
             case "SystemMonitorElectron":
                 return platformNoop(methodName);
@@ -159,6 +167,9 @@ final class NativeApi {
                     .putString(args.optString(0, ""), args.optString(1, ""))
                     .apply();
                 return JSONObject.NULL;
+            case "Remove":
+                desktopPrefs.edit().remove(args.optString(0, "")).apply();
+                return JSONObject.NULL;
             case "Save":
             case "Init":
                 return JSONObject.NULL;
@@ -190,28 +201,103 @@ final class NativeApi {
             case "ShowDevTools":
             case "PopulateImageHosts":
             case "Save":
+            case "IPCAnnounceStart":
+            case "SetAppLauncherSettings":
+            case "ExecuteVrOverlayFunction":
+            case "SetVR":
+            case "SetStartup":
+            case "CropAllPrints":
+            case "DeleteAllScreenshotMetadata":
                 return JSONObject.NULL;
+
+            case "CurrentCulture":
+                return Locale.getDefault().toLanguageTag();
+
+            case "GetVersion":
+                try {
+                    return context.getPackageManager()
+                        .getPackageInfo(context.getPackageName(), 0)
+                        .versionName;
+                } catch (Exception ignored) {
+                    return "0.1.0";
+                }
+
+            case "GetColourBulk":
+                // Linux returns an iterable key/value collection. [] is a valid
+                // empty iterable for Object.fromEntries() in the desktop renderer.
+                return new JSONArray();
+
             case "GetLaunchCommand":
             case "GetVRChatRegistryJson":
+            case "GetVRChatRegistryKeyString":
             case "GetVRChatPath":
             case "GetSteamPath":
             case "GetPicturesFolder":
             case "GetScreenshotFolder":
+            case "OpenFolderSelectorDialog":
+            case "OpenUGCPhotosFolder":
                 return "";
+
             case "HasVRChatRegistryFolder":
             case "IsGameRunning":
+            case "IsSteamVRRunning":
+            case "TryOpenInstanceInVrc":
+            case "StartGameFromPath":
+            case "StartGame":
                 return false;
+
+            case "OpenLink":
+                return openExternalLink(args.optString(0, ""));
+
             case "ResizeImageToFitLimits":
                 return args.optString(0, "");
+
             case "FileLength":
                 return Base64.decode(args.optString(0, ""), Base64.DEFAULT).length;
+
             case "MD5File": {
                 byte[] bytes = Base64.decode(args.optString(0, ""), Base64.DEFAULT);
                 MessageDigest md5 = MessageDigest.getInstance("MD5");
                 return Base64.encodeToString(md5.digest(bytes), Base64.NO_WRAP);
             }
+
             default:
                 return platformNoop(methodName);
+        }
+    }
+
+    private Object logWatcherInterop(String methodName) {
+        if ("GetLogLines".equals(methodName)) {
+            return new JSONArray();
+        }
+        return platformNoop(methodName);
+    }
+
+    private Object assetBundleManagerInterop(String methodName) {
+        if ("GetCacheSize".equals(methodName)) {
+            return 0L;
+        }
+        return platformNoop(methodName);
+    }
+
+    private boolean openExternalLink(String value) {
+        if (value == null || value.isEmpty()) {
+            return false;
+        }
+        try {
+            Uri uri = Uri.parse(value);
+            String scheme = uri.getScheme();
+            if (!"https".equalsIgnoreCase(scheme) && !"http".equalsIgnoreCase(scheme)) {
+                return false;
+            }
+            Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+            if (!(context instanceof android.app.Activity)) {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            }
+            context.startActivity(intent);
+            return true;
+        } catch (Exception ignored) {
+            return false;
         }
     }
 
