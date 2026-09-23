@@ -2,6 +2,7 @@ package dev.sakus.vrcx.android;
 
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
+import android.content.ClipData;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -128,10 +129,24 @@ public final class MainActivity extends Activity {
                 if (fileCallback != null) fileCallback.onReceiveValue(null);
                 fileCallback = callback;
                 Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-                intent.setType("image/*");
                 intent.addCategory(Intent.CATEGORY_OPENABLE);
+
+                String[] acceptTypes = params.getAcceptTypes();
+                String primaryType = "*/*";
+                if (acceptTypes != null && acceptTypes.length == 1 && !acceptTypes[0].isEmpty()) {
+                    primaryType = acceptTypes[0];
+                }
+                intent.setType(primaryType);
+
+                if (acceptTypes != null && acceptTypes.length > 1) {
+                    intent.putExtra(Intent.EXTRA_MIME_TYPES, acceptTypes);
+                }
+                if (params.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE) {
+                    intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+                }
+
                 try {
-                    startActivityForResult(Intent.createChooser(intent, "Choose image"), FILE_PICKER);
+                    startActivityForResult(Intent.createChooser(intent, "Choose file"), FILE_PICKER);
                 } catch (ActivityNotFoundException e) {
                     fileCallback = null;
                     callback.onReceiveValue(null);
@@ -146,11 +161,19 @@ public final class MainActivity extends Activity {
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == FILE_PICKER && fileCallback != null) {
-            fileCallback.onReceiveValue(
-                resultCode == RESULT_OK && data != null && data.getData() != null
-                    ? new Uri[] { data.getData() }
-                    : null
-            );
+            Uri[] result = null;
+            if (resultCode == RESULT_OK && data != null) {
+                ClipData clipData = data.getClipData();
+                if (clipData != null && clipData.getItemCount() > 0) {
+                    result = new Uri[clipData.getItemCount()];
+                    for (int i = 0; i < clipData.getItemCount(); i++) {
+                        result[i] = clipData.getItemAt(i).getUri();
+                    }
+                } else if (data.getData() != null) {
+                    result = new Uri[] { data.getData() };
+                }
+            }
+            fileCallback.onReceiveValue(result);
             fileCallback = null;
         }
     }
