@@ -12,7 +12,7 @@ window.vrcxAndroidResponse = (id, result) => {
     } else {
         entry.resolve(result.value);
     }
-    };
+};
 
 function toJsonValue(value) {
     if (value instanceof Map) {
