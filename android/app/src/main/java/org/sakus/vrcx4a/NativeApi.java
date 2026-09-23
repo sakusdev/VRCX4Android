@@ -80,7 +80,10 @@ final class NativeApi {
             if (current == null || !current.isOpen()) {
                 current = context.openOrCreateDatabase("vrcx.db", Context.MODE_PRIVATE, null);
                 current.enableWriteAheadLogging();
-                current.execSQL("PRAGMA busy_timeout=5000");
+                // Android's execSQL rejects PRAGMAs that return a row.
+                try (Cursor timeout = current.rawQuery("PRAGMA busy_timeout=5000", null)) {
+                    timeout.moveToFirst();
+                }
                 database = current;
             }
             return current;
