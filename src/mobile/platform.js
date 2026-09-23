@@ -52,8 +52,8 @@ window.vrcxAndroidBack = () => {
 };
 
 window.addEventListener('error', (event) => {
-    console.error('VRCX_ANDROID_RENDERER_FAILED', event.error || event.message);
+    console.error('VRCX_ANDROID_RENDERER_FAILED', event.error?.stack || event.error || event.message);
 });
 window.addEventListener('unhandledrejection', (event) => {
-    console.error('VRCX_ANDROID_RENDERER_FAILED', event.reason);
+    console.error('VRCX_ANDROID_RENDERER_FAILED', event.reason?.stack || event.reason);
 });
