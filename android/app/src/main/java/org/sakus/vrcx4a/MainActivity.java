@@ -14,6 +14,7 @@ import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
+import android.widget.FrameLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.core.graphics.Insets;
@@ -59,7 +60,8 @@ public final class MainActivity extends Activity {
 
         webView = new WebView(this);
         webView.setBackgroundColor(0xff16191e);
-        ViewCompat.setOnApplyWindowInsetsListener(webView, (view, insets) -> {
+        FrameLayout container = new FrameLayout(this);
+        ViewCompat.setOnApplyWindowInsetsListener(container, (view, insets) -> {
             Insets bars = insets.getInsets(
                 WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout()
             );
@@ -179,7 +181,8 @@ public final class MainActivity extends Activity {
                 return true;
             }
         });
-        setContentView(webView);
+        container.addView(webView);
+        setContentView(container);
         webView.loadUrl(WEB_ENTRY);
     }
 
