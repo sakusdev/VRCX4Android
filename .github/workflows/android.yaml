@@ -162,6 +162,11 @@ jobs:
 
           "$ADB" exec-out screencap -p > vrcx-smoke.png
           "$ADB" logcat -d -v threadtime > logcat.txt
+
+          if grep -E 'VRCXAndroid.*(Fatal startup error|Vue renderer did not mount|WebView load failed)' logcat.txt; then
+            echo "VRCX4Android reached the native fallback/error screen." >&2
+            exit 1
+          fi
       - name: Upload smoke-test diagnostics
         if: always()
         uses: actions/upload-artifact@v4
