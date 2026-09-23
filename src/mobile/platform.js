@@ -1,0 +1,50 @@
+import { invoke } from './bridge';
+
+// Android replaces only the platform services normally supplied by Electron/.NET.
+// This module MUST be evaluated before the upstream src/app.js entry point.
+globalThis.WINDOWS = false;
+globalThis.LINUX = true;
+globalThis.ANDROID = true;
+window.isVrOverlay = false;
+document.documentElement.classList.add('vrcx-android');
+
+window.interopApi = {
+    callDotNetMethod(className, methodName, args = []) {
+        return invoke('interop', { className, methodName, args });
+    }
+};
+
+const noopSubscription = () => () => {};
+window.electron = {
+    getArch: async () => 'arm64',
+    getClipboardText: async () => navigator.clipboard?.readText?.().catch(() => '') ?? '',
+    getNoUpdater: async () => true,
+    setTrayIconNotification: async () => {},
+    openFileDialog: async () => null,
+    openDirectoryDialog: async () => null,
+    onWindowPositionChanged: noopSubscription,
+    onWindowSizeChanged: noopSubscription,
+    onWindowStateChange: noopSubscription,
+    onBrowserFocus: noopSubscription,
+    desktopNotification: async (title, body) => {
+        console.info('[Android notification]', title, body);
+    },
+    restartApp: async () => location.reload(),
+    getOverlayWindow: async () => false,
+    updateVr: async () => false,
+    ipcRenderer: {
+        on: noopSubscription
+    }
+};
+
+window.vrcxAndroidBack = () => {
+    if (history.length > 1) history.back();
+    else invoke('background').catch(() => {});
+};
+
+window.addEventListener('error', (event) => {
+    console.error('VRCX_ANDROID_RENDERER_FAILED', event.error || event.message);
+});
+window.addEventListener('unhandledrejection', (event) => {
+    console.error('VRCX_ANDROID_RENDERER_FAILED', event.reason);
+});
