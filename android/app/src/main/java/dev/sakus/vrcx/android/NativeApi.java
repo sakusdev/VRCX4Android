@@ -49,6 +49,8 @@ import javax.crypto.spec.GCMParameterSpec;
 final class NativeApi {
     private static final String API = "https://api.vrchat.cloud/api/1/";
     private static final String KEY_ALIAS = "vrcx_android_session_v1";
+    private static final String SESSION_HANDLE_PREFIX = "android-session:";
+    private static final String SESSION_PREF_PREFIX = "session_snapshot_";
     private static final int MAX_RESPONSE = 8 * 1024 * 1024;
     private static final Pattern SQL_PARAM = Pattern.compile("@[A-Za-z0-9_]+");
 
@@ -140,10 +142,10 @@ final class NativeApi {
                 clearSession();
                 return JSONObject.NULL;
             case "GetCookies":
-                // Cookies intentionally remain native-only on Android.
-                return "";
+                // Return only an opaque handle. Cookie contents never enter the renderer.
+                return createSessionSnapshot();
             case "SetCookies":
-                // The persisted native session is already restored at startup.
+                restoreSessionSnapshot(args.optString(0, ""));
                 return JSONObject.NULL;
             case "ExecuteJson": {
                 JSONObject options = new JSONObject(args.getString(0));
@@ -658,7 +660,7 @@ final class NativeApi {
         return generator.generateKey();
     }
 
-    private void saveCookies() throws Exception {
+    private JSONArray serializeCookies() throws Exception {
         JSONArray values = new JSONArray();
         for (HttpCookie cookie : cookies.getCookieStore().getCookies()) {
             if (cookie.hasExpired()) continue;
@@ -677,19 +679,88 @@ final class NativeApi {
             );
             values.put(entry);
         }
+        return values;
+    }
 
+    private String encryptCookieArray(JSONArray values) throws Exception {
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
         cipher.init(Cipher.ENCRYPT_MODE, key());
         byte[] encrypted = cipher.doFinal(values.toString().getBytes(StandardCharsets.UTF_8));
         byte[] combined = new byte[cipher.getIV().length + encrypted.length];
         System.arraycopy(cipher.getIV(), 0, combined, 0, cipher.getIV().length);
         System.arraycopy(encrypted, 0, combined, cipher.getIV().length, encrypted.length);
+        return Base64.encodeToString(combined, Base64.NO_WRAP);
+    }
 
-        if (
-            !prefs.edit()
-                .putString("cookies", Base64.encodeToString(combined, Base64.NO_WRAP))
-                .commit()
-        ) {
+    private JSONArray decryptCookieArray(String encoded) throws Exception {
+        byte[] combined = Base64.decode(encoded, Base64.DEFAULT);
+        if (combined.length < 13) {
+            throw new IllegalArgumentException("Invalid encrypted session");
+        }
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(
+            Cipher.DECRYPT_MODE,
+            key(),
+            new GCMParameterSpec(128, combined, 0, 12)
+        );
+        String json = new String(
+            cipher.doFinal(combined, 12, combined.length - 12),
+            StandardCharsets.UTF_8
+        );
+        return new JSONArray(json);
+    }
+
+    private void installCookies(JSONArray values) throws Exception {
+        cookies.getCookieStore().removeAll();
+        URI origin = new URI(API);
+        for (int i = 0; i < values.length(); i++) {
+            JSONObject entry = values.getJSONObject(i);
+            long expires = entry.getLong("expires");
+            if (expires != -1 && expires <= System.currentTimeMillis()) continue;
+
+            HttpCookie cookie = new HttpCookie(
+                entry.getString("name"),
+                entry.getString("value")
+            );
+            cookie.setDomain(entry.optString("domain", "api.vrchat.cloud"));
+            cookie.setPath(entry.optString("path", "/"));
+            cookie.setSecure(entry.optBoolean("secure", true));
+            cookie.setHttpOnly(entry.optBoolean("httpOnly", true));
+            if (expires != -1) {
+                cookie.setMaxAge(Math.max(0, (expires - System.currentTimeMillis()) / 1000));
+            }
+            cookies.getCookieStore().add(origin, cookie);
+        }
+    }
+
+    private String createSessionSnapshot() throws Exception {
+        String id = UUID.randomUUID().toString();
+        String encoded = encryptCookieArray(serializeCookies());
+        if (!prefs.edit().putString(SESSION_PREF_PREFIX + id, encoded).commit()) {
+            throw new IllegalStateException("Could not persist session snapshot");
+        }
+        return SESSION_HANDLE_PREFIX + id;
+    }
+
+    private void restoreSessionSnapshot(String handle) throws Exception {
+        if (handle == null || !handle.startsWith(SESSION_HANDLE_PREFIX)) {
+            return;
+        }
+        String id = handle.substring(SESSION_HANDLE_PREFIX.length());
+        if (id.isEmpty() || !id.matches("[0-9a-fA-F-]{36}")) {
+            return;
+        }
+        String encoded = prefs.getString(SESSION_PREF_PREFIX + id, null);
+        if (encoded == null) {
+            return;
+        }
+        installCookies(decryptCookieArray(encoded));
+        saveCookies();
+    }
+
+    private void saveCookies() throws Exception {
+        String encoded = encryptCookieArray(serializeCookies());
+        if (!prefs.edit().putString("cookies", encoded).commit()) {
             throw new IllegalStateException("Could not persist session");
         }
     }
@@ -699,39 +770,7 @@ final class NativeApi {
         if (encoded == null) return;
 
         try {
-            byte[] combined = Base64.decode(encoded, Base64.DEFAULT);
-            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-            cipher.init(
-                Cipher.DECRYPT_MODE,
-                key(),
-                new GCMParameterSpec(128, combined, 0, 12)
-            );
-
-            String json = new String(
-                cipher.doFinal(combined, 12, combined.length - 12),
-                StandardCharsets.UTF_8
-            );
-            JSONArray values = new JSONArray(json);
-            URI origin = new URI(API);
-
-            for (int i = 0; i < values.length(); i++) {
-                JSONObject entry = values.getJSONObject(i);
-                long expires = entry.getLong("expires");
-                if (expires != -1 && expires <= System.currentTimeMillis()) continue;
-
-                HttpCookie cookie = new HttpCookie(
-                    entry.getString("name"),
-                    entry.getString("value")
-                );
-                cookie.setDomain(entry.optString("domain", "api.vrchat.cloud"));
-                cookie.setPath(entry.optString("path", "/"));
-                cookie.setSecure(entry.optBoolean("secure", true));
-                cookie.setHttpOnly(entry.optBoolean("httpOnly", true));
-                if (expires != -1) {
-                    cookie.setMaxAge((expires - System.currentTimeMillis()) / 1000);
-                }
-                cookies.getCookieStore().add(origin, cookie);
-            }
+            installCookies(decryptCookieArray(encoded));
         } catch (Exception ignored) {
             clearSession();
         }
