@@ -33,7 +33,9 @@ public final class MainActivity extends Activity {
 
     private WebView webView;
     private ValueCallback<Uri[]> fileCallback;
-    private final ExecutorService worker = Executors.newSingleThreadExecutor();
+    // Desktop VRCX performs API and database work concurrently. Keep a small
+    // bounded pool so Android doesn't serialize every request through one thread.
+    private final ExecutorService worker = Executors.newFixedThreadPool(4);
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -55,7 +57,9 @@ public final class MainActivity extends Activity {
         });
         webView.getSettings().setJavaScriptEnabled(true);
         webView.getSettings().setAllowFileAccess(false);
-        webView.getSettings().setAllowContentAccess(false);
+        // Required for user-selected content:// URIs returned by Android's picker.
+        // Arbitrary external navigation is still blocked by WebViewClient.
+        webView.getSettings().setAllowContentAccess(true);
         webView.getSettings().setDomStorageEnabled(true);
         webView.addJavascriptInterface(new Bridge(), "VrcxAndroid");
         webView.setWebViewClient(new WebViewClientCompat() {
@@ -130,6 +134,7 @@ public final class MainActivity extends Activity {
                 fileCallback = callback;
                 Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
                 intent.addCategory(Intent.CATEGORY_OPENABLE);
+                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
                 String[] acceptTypes = params.getAcceptTypes();
                 String primaryType = "*/*";
