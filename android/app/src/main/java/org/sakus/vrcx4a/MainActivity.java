@@ -107,7 +107,7 @@ public final class MainActivity extends Activity {
                 view.postDelayed(
                     () ->
                         view.evaluateJavascript(
-                            "(function(){var r=document.getElementById('root');return r&&r.children.length?'ok':'empty';})()",
+                            "(function(){return document.documentElement.dataset.vrcxMounted==='true'?'ok':'empty';})()",
                             value -> {
                                 if (!"\"ok\"".equals(value)) {
                                     String detail = "Vue renderer did not mount; root state=" + value;
@@ -119,7 +119,7 @@ public final class MainActivity extends Activity {
                                 }
                             }
                         ),
-                    1500
+                    15000
                 );
             }
         });
