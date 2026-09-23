@@ -58,6 +58,13 @@ jobs:
           test ! -e src/mobile/MobileApp.vue
           test ! -e src/mobile/api.js
           grep -Fq "await import('../app.js')" src/mobile/main.js
+      - name: Verify Android application identity
+        run: |
+          grep -Fq "namespace 'org.sakus.vrcx4a'" android/app/build.gradle
+          grep -Fq "applicationId 'org.sakus.vrcx4a'" android/app/build.gradle
+          test -f android/app/src/main/java/org/sakus/vrcx4a/MainActivity.java
+          test -f android/app/src/main/java/org/sakus/vrcx4a/NativeApi.java
+          test ! -e android/app/src/main/java/dev/sakus/vrcx/android
       - run: npm run prod
       - run: npm run android:web
       - run: gradle assembleDebug --no-daemon
