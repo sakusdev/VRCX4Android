@@ -64,19 +64,24 @@ window.vrcxAndroidBack = () => {
 };
 
 window.vrcxAndroidHidden = () => {
-    import('../services/websocket.js').then(({ closeWebSocket }) => closeWebSocket());
+    import('../services/websocket.js')
+        .then(({ closeWebSocket }) => closeWebSocket())
+        .catch((error) => console.warn('Could not pause VRCX websocket', error));
 };
 
 window.vrcxAndroidResume = () => {
-    Promise.all([import('../services/websocket.js'), import('../services/watchState.js')]).then(
-        ([{ reconnectWebSocket }, { watchState }]) => {
+    Promise.all([import('../services/websocket.js'), import('../services/watchState.js')])
+        .then(([{ reconnectWebSocket }, { watchState }]) => {
             if (!watchState.isLoggedIn || !watchState.isFriendsLoaded) return;
             // The native socket kept delivering OS notifications while hidden;
             // refresh upstream stores to include events received in that time.
-            Promise.allSettled([useFriendStore().refreshFriends(), useNotificationStore().refreshNotifications()]);
+            Promise.allSettled([
+                Promise.resolve().then(() => useFriendStore().refreshFriends()),
+                Promise.resolve().then(() => useNotificationStore().refreshNotifications())
+            ]);
             reconnectWebSocket();
-        }
-    );
+        })
+        .catch((error) => console.warn('Could not resume VRCX websocket', error));
 };
 
 window.addEventListener('error', (event) => {

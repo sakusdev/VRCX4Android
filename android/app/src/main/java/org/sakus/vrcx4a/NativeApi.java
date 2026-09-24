@@ -61,11 +61,17 @@ final class NativeApi {
     private final Context context;
     private final SharedPreferences prefs;
     private final SharedPreferences desktopPrefs;
+    private final boolean readOnlySession;
     private volatile SQLiteDatabase database;
     private long instanceSessionGeneration;
 
     NativeApi(Context context) {
+        this(context, false);
+    }
+
+    NativeApi(Context context, boolean readOnlySession) {
         this.context = context;
+        this.readOnlySession = readOnlySession;
         synchronized (SESSION_LOCK) {
             instanceSessionGeneration = sessionGeneration;
         }
@@ -825,6 +831,9 @@ final class NativeApi {
     }
 
     private void saveCookies() throws Exception {
+        // The notification service reads the latest encrypted session each time
+        // it reconnects. Never let its older cookie snapshot overwrite the UI's.
+        if (readOnlySession) return;
         String encoded = encryptCookieArray(serializeCookies());
         synchronized (SESSION_LOCK) {
             if (instanceSessionGeneration != sessionGeneration) return;

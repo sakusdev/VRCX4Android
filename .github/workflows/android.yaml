@@ -65,6 +65,7 @@ jobs:
           grep -Fq "applicationId 'org.sakus.vrcx4a'" android/app/build.gradle
           test -f android/app/src/main/java/org/sakus/vrcx4a/MainActivity.java
           test -f android/app/src/main/java/org/sakus/vrcx4a/NativeApi.java
+          test -f android/app/src/main/java/org/sakus/vrcx4a/BackgroundNotificationsService.java
           test ! -e android/app/src/main/java/dev/sakus/vrcx/android
       - run: npm run prod
       - run: npm run android:web
@@ -173,6 +174,16 @@ jobs:
           test -n "$PID"
 
           "$ADB" exec-out screencap -p > vrcx-smoke.png
+          # Exercise the Activity background/foreground handoff without using
+          # VRChat credentials. Native push delivery needs a real account.
+          "$ADB" shell input keyevent KEYCODE_HOME
+          sleep 3
+          "$ADB" shell pidof org.sakus.vrcx4a | tee background-pid.txt
+          test -s background-pid.txt
+          "$ADB" shell am start -W -n org.sakus.vrcx4a/org.sakus.vrcx4a.MainActivity | tee resume.txt
+          "$ADB" shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity' | tee activity.txt
+          grep -q 'org.sakus.vrcx4a' activity.txt
+          sleep 2
           "$ADB" logcat -d -v threadtime > logcat.txt
 
           if grep -E 'VRCXAndroid.*(Fatal startup error|Vue renderer did not mount|WebView load failed|VRCX_ANDROID_RENDERER_FAILED|VRCX_ANDROID_LOGIN_FAILED)' logcat.txt; then
@@ -190,6 +201,8 @@ jobs:
             emulator.log
             start.txt
             activity.txt
+            background-pid.txt
+            resume.txt
             logcat.txt
             vrcx-smoke.png
           if-no-files-found: ignore

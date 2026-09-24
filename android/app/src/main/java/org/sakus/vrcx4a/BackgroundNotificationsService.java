@@ -122,7 +122,7 @@ public final class BackgroundNotificationsService extends Service {
         try {
             // NativeApi restores the encrypted Android Keystore cookie jar. Refresh the
             // short-lived pipeline token on every connection rather than persisting it.
-            String token = new NativeApi(getApplicationContext()).backgroundAuthToken();
+            String token = new NativeApi(getApplicationContext(), true).backgroundAuthToken();
             if (stopped || activityVisible || generation != connectionGeneration) return;
             Request request = new Request.Builder()
                 .url("wss://pipeline.vrchat.cloud/?auth=" + URLEncoder.encode(token, StandardCharsets.UTF_8.name()))
