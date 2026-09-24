@@ -214,7 +214,7 @@ export const useAppearanceSettingsStore = defineStore(
                 configRepository.getBool('VRCX_compactTableMode', false),
                 configRepository.getString('VRCX_trustColor', JSON.stringify(TRUST_COLOR_DEFAULTS)),
                 configRepository.getBool('VRCX_notificationIconDot', true),
-                configRepository.getBool('VRCX_navIsCollapsed', false),
+                configRepository.getBool('VRCX_navIsCollapsed', globalThis.ANDROID === true),
                 configRepository.getBool('VRCX_dataTableStriped', false),
                 configRepository.getBool('VRCX_accessibleStatusIndicators', false),
                 configRepository.getBool('VRCX_showNewDashboardButton', true),

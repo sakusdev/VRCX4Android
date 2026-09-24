@@ -48,6 +48,13 @@ export const useVrcStatusStore = defineStore('VrcStatus', () => {
         });
         lastTimeFetched.value = Date.now();
         if (response.status !== 200) {
+            if (globalThis.ANDROID === true) {
+                // A failed status lookup does not indicate a VRChat server incident.
+                lastStatus.value = '';
+                lastStatusIndicator.value = '';
+                pollingInterval.value = 2 * 60 * 1000;
+                return;
+            }
             console.error('Failed to fetch VRChat status', response);
             lastStatus.value = 'Failed to fetch VRC status';
             pollingInterval.value = 2 * 60 * 1000; // 2 minutes

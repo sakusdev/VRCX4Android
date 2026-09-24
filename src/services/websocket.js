@@ -52,6 +52,11 @@ export function initWebsocket() {
             };
             if (args.json.ok) {
                 connectWebSocket(args.json.token);
+                if (globalThis.ANDROID === true) {
+                    import('../mobile/bridge.js')
+                        .then(({ invoke }) => invoke('backgroundAlerts'))
+                        .catch((error) => console.warn('Android background alerts unavailable', error));
+                }
             }
         })
         .catch((err) => {

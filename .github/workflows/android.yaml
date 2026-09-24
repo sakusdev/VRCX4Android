@@ -1,0 +1,248 @@
+name: Android debug APK
+on:
+  pull_request:
+    paths:
+      - 'android/**'
+      - 'src/mobile/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/android.yaml'
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Optional release tag to create/update (for example v0.1.0). Leave empty for build only.'
+        required: false
+        type: string
+
+concurrency:
+  group: android-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Install Android SDK platform
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort -V | tail -1)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" 'platforms;android-35' 'build-tools;35.0.0'
+      - run: npm ci
+      - run: npm run format:check -- src/mobile README.md package.json .github/workflows/android.yaml
+      - run: npm run lint
+      - name: Syntax check Android renderer
+        run: |
+          node --check src/mobile/bridge.js
+          node --check src/mobile/main.js
+          node --check src/mobile/platform.js
+          node --check src/mobile/vite.config.js
+      - name: Verify upstream desktop renderer reuse
+        run: |
+          test ! -e src/mobile/MobileApp.vue
+          test ! -e src/mobile/api.js
+          grep -Fq "import '../app.js';" src/mobile/main.js
+      - name: Verify Android application identity
+        run: |
+          grep -Fq "namespace 'org.sakus.vrcx4a'" android/app/build.gradle
+          grep -Fq "applicationId 'org.sakus.vrcx4a'" android/app/build.gradle
+          test -f android/app/src/main/java/org/sakus/vrcx4a/MainActivity.java
+          test -f android/app/src/main/java/org/sakus/vrcx4a/NativeApi.java
+          test -f android/app/src/main/java/org/sakus/vrcx4a/BackgroundNotificationsService.java
+          test ! -e android/app/src/main/java/dev/sakus/vrcx/android
+      - run: npm run prod
+      - run: npm run android:web
+      - run: gradle assembleDebug --no-daemon
+        working-directory: android
+      - name: Prepare APK artifact
+        shell: bash
+        run: |
+          mkdir -p dist
+          APK="$(find android/app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -1)"
+          test -n "$APK"
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF_NAME}"
+          elif [[ -n "${{ inputs.release_tag }}" ]]; then
+            VERSION="${{ inputs.release_tag }}"
+          else
+            VERSION="ci-${GITHUB_SHA::7}"
+          fi
+          cp "$APK" "dist/VRCX4Android-${VERSION}-debug.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vrcx-android-debug
+          path: dist/*.apk
+
+  smoke:
+    needs: debug
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: vrcx-android-debug
+          path: dist
+      - name: Install Android emulator image
+        shell: bash
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort -V | tail -1)"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" 'platform-tools' 'emulator' 'system-images;android-35;google_apis;x86_64'
+      - name: Boot emulator and launch VRCX4Android
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          AVDMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name avdmanager | sort -V | tail -1)"
+          ADB="$SDK_ROOT/platform-tools/adb"
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/android-avd"
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo no | "$AVDMANAGER" create avd \
+            --force \
+            --name vrcx-ci \
+            --package 'system-images;android-35;google_apis;x86_64' \
+            --device pixel_6
+
+          ACCEL="-accel off"
+          if [[ -e /dev/kvm ]]; then
+            sudo chmod 666 /dev/kvm || true
+            ACCEL="-accel on"
+          fi
+
+          nohup "$SDK_ROOT/emulator/emulator" \
+            -avd vrcx-ci \
+            -no-window \
+            -noaudio \
+            -no-boot-anim \
+            -no-snapshot \
+            -no-metrics \
+            -wipe-data \
+            -gpu swiftshader_indirect \
+            $ACCEL > emulator.log 2>&1 &
+
+          "$ADB" wait-for-device
+          BOOTED=""
+          for _ in $(seq 1 150); do
+            BOOTED="$("$ADB" shell getprop sys.boot_completed | tr -d '\r')"
+            [[ "$BOOTED" == "1" ]] && break
+            sleep 2
+          done
+          [[ "$BOOTED" == "1" ]]
+
+          APK="$(find dist -maxdepth 1 -type f -name '*.apk' | head -1)"
+          test -n "$APK"
+          "$ADB" install -r "$APK"
+          "$ADB" logcat -c
+
+          "$ADB" shell am force-stop org.sakus.vrcx4a
+          "$ADB" shell am start -W -n org.sakus.vrcx4a/org.sakus.vrcx4a.MainActivity | tee start.txt
+
+          # onPageFinished waits 15 seconds before verifying the desktop login.
+          # Allow for cold WebView startup instead of sampling just before its callback.
+          for _ in $(seq 1 25); do
+            "$ADB" logcat -d -v brief > "$RUNNER_TEMP/vrcx-login-wait.log"
+            if grep -q 'VRCX_ANDROID_LOGIN_VISIBLE' "$RUNNER_TEMP/vrcx-login-wait.log"; then
+              break
+            fi
+            sleep 2
+          done
+
+          "$ADB" shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity' | tee activity.txt
+          grep -q 'org.sakus.vrcx4a' activity.txt
+
+          PID="$("$ADB" shell pidof org.sakus.vrcx4a | tr -d '\r')"
+          test -n "$PID"
+
+          "$ADB" exec-out screencap -p > vrcx-smoke.png
+          # Exercise the Activity background/foreground handoff without using
+          # VRChat credentials. Native push delivery needs a real account.
+          "$ADB" shell input keyevent KEYCODE_HOME
+          sleep 3
+          "$ADB" shell pidof org.sakus.vrcx4a | tee background-pid.txt
+          test -s background-pid.txt
+          "$ADB" shell am start -W -n org.sakus.vrcx4a/org.sakus.vrcx4a.MainActivity | tee resume.txt
+          "$ADB" shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity' | tee activity.txt
+          grep -q 'org.sakus.vrcx4a' activity.txt
+          sleep 2
+          "$ADB" logcat -d -v threadtime > logcat.txt
+
+          if grep -E 'VRCXAndroid.*(Fatal startup error|Vue renderer did not mount|WebView load failed|VRCX_ANDROID_RENDERER_FAILED|VRCX_ANDROID_LOGIN_FAILED)' logcat.txt; then
+            echo "VRCX4Android reached the native fallback/error screen." >&2
+            exit 1
+          fi
+          grep -q 'VRCX_ANDROID_RENDERER_MOUNTED' logcat.txt
+          grep -q 'VRCX_ANDROID_LOGIN_VISIBLE' logcat.txt
+      - name: Upload smoke-test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vrcx-android-smoke
+          path: |
+            emulator.log
+            start.txt
+            activity.txt
+            background-pid.txt
+            resume.txt
+            logcat.txt
+            vrcx-smoke.png
+          if-no-files-found: ignore
+
+  release:
+    needs: [debug, smoke]
+    if: >-
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+      (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: vrcx-android-debug
+          path: dist
+      - name: Resolve release tag
+        id: tag
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF_NAME}"
+          else
+            TAG="${{ inputs.release_tag }}"
+          fi
+          if [[ ! "$TAG" =~ ^v[0-9A-Za-z._+-]+$ ]]; then
+            echo "Invalid release tag: $TAG" >&2
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        shell: bash
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; uploading APK."
+          else
+            gh release create "$TAG"               --repo "$GITHUB_REPOSITORY"               --title "VRCX4Android $TAG"               --generate-notes               --target "$GITHUB_SHA"
+          fi
+          gh release upload "$TAG" dist/*.apk             --repo "$GITHUB_REPOSITORY"             --clobber

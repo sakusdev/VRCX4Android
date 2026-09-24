@@ -1,0 +1,43 @@
+/*
+ * Android-only responsive adjustments for the upstream desktop renderer.
+ * Keep this file small: existing VRCX components/layouts remain the source of truth.
+ */
+
+html.vrcx-android {
+    touch-action: manipulation;
+}
+
+@media (max-width: 720px) {
+    html.vrcx-android .x-login {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    html.vrcx-android .x-login-form-container {
+        width: 100%;
+        height: auto;
+        max-height: calc(100svh - 150px);
+        overflow-y: auto;
+    }
+
+    html.vrcx-android .x-login-form-container:has(> div:nth-child(3)) {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    html.vrcx-android hr.x-vertical-divider {
+        width: 100%;
+        height: 1px;
+        min-height: 1px;
+    }
+
+    html.vrcx-android .x-login-form-container > div {
+        padding: 12px;
+        overflow: visible;
+    }
+
+    html.vrcx-android .x-legal-notice-container {
+        padding-inline: 12px;
+        max-height: 22svh;
+        overflow-y: auto;
+    }
+}

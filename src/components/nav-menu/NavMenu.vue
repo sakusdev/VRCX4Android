@@ -186,7 +186,8 @@
         SidebarHeader,
         SidebarMenu,
         SidebarMenuButton,
-        SidebarMenuItem
+        SidebarMenuItem,
+        useSidebar
     } from '@/components/ui/sidebar';
 
     import {
@@ -209,7 +210,15 @@
 
     const { t, locale } = useI18n();
     const router = useRouter();
+    const { isMobile, setOpenMobile } = useSidebar();
     const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+
+    watch(
+        () => router.currentRoute.value.fullPath,
+        () => {
+            if (globalThis.ANDROID === true && isMobile.value) setOpenMobile(false);
+        }
+    );
 
     const VRCXUpdaterStore = useVRCXUpdaterStore();
     const { pendingVRCXUpdate, pendingVRCXInstall, appVersion } = storeToRefs(VRCXUpdaterStore);

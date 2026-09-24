@@ -141,3 +141,36 @@ To see VRChat's stance on API usage, see the #faq channel in the VRChat Discord.
 ---
 
 VRCX is not endorsed by VRChat and does not reflect the views or opinions of VRChat or anyone officially involved in producing or managing VRChat properties. VRChat and all associated properties are trademarks or registered trademarks of VRChat Inc. VRChat © VRChat Inc.
+
+## Unofficial Android port (experimental)
+
+This fork is an unofficial Android port of [VRCX](https://github.com/vrcx-team/VRCX). It is **not** a separate VRCX-like mobile UI. Android boots the upstream VRCX Vue renderer from `src/app.js`, including the upstream login screen, router, MainLayout, NavMenu, Sidebar, dialogs, and views. Android-specific code is limited to the platform bridge and small compatibility branches. This is **not** a release from VRCX Team. The MIT license and upstream attribution remain in place.
+
+### Requirements and build
+
+- Node.js >= 24.15, npm >= 11.5, JDK 17, Android SDK Platform 35, and Gradle 8.10.2.
+- Run `npm ci && npm run android:web && cd android && gradle assembleDebug`.
+- Install `android/app/build/outputs/apk/debug/app-debug.apk` on an Android 8.0+ device. The Android CI workflow uploads this debug APK as an artifact. Debug signing is provided by the Android tooling; no signing key is checked in.
+- Push a tag such as `v0.1.0` to build the APK and attach it to a GitHub Release automatically. The workflow can also create/update a release from `workflow_dispatch` by setting `release_tag`.
+
+### Architecture
+
+The Android entry point does not mount a separate `MobileApp.vue`. `src/mobile/main.js` installs an Electron/.NET-compatible platform facade and then imports the real `src/app.js` desktop renderer.
+
+The native bridge supplies the services the upstream renderer normally receives from Electron/.NET:
+
+- `WebApi`: VRChat HTTPS transport with a native cookie jar.
+- `SQLite`: Android SQLite backing for the existing VRCX repositories and stores.
+- `VRCXStorage`: Android SharedPreferences-backed settings.
+- `AppApi`: Android-safe implementations or neutral fallbacks for desktop-only operations.
+- Android image picker, WebView lifecycle, system-bar insets, and encrypted session-cookie persistence.
+
+This keeps the existing VRCX UI, stores, routes, dialogs, world/avatar components, and future upstream UI changes reusable on Android instead of maintaining a second application UI.
+
+For world/avatar image changes, the existing desktop crop/dialog flow remains in use. Android swaps only the final file transport to the upstream `POST /file/image` route and then updates the entity with the newest returned `versions[].file.url`.
+
+**Limitations:** This is still experimental. Desktop-only integrations such as SteamVR/VR overlay, local VRChat log watching, desktop Discord integration, process monitoring/restart, and PC filesystem operations are intentionally no-ops or unavailable on Android. Real-device regression testing is still required as more upstream views exercise platform APIs.
+
+### Upstream sync
+
+Keep Android-specific behavior isolated in `android/` and `src/mobile/` whenever possible. Do not create Android replacements for existing VRCX views. Shared source changes should be limited to narrow platform compatibility branches, so upstream `master` can continue to merge cleanly.
