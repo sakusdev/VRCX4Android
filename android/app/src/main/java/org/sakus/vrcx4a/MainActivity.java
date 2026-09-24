@@ -1,11 +1,14 @@
 package org.sakus.vrcx4a;
 
 import android.app.Activity;
+import android.Manifest;
 import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Build;
+import android.content.pm.PackageManager;
 import android.util.Log;
 import android.webkit.ConsoleMessage;
 import android.webkit.JavascriptInterface;
@@ -32,6 +35,7 @@ public final class MainActivity extends Activity {
     private static final String WEB_HOST = "appassets.androidplatform.net";
     private static final String WEB_ENTRY = "https://" + WEB_HOST + "/assets/src/mobile/index.html";
     private static final int FILE_PICKER = 13;
+    private static final int NOTIFICATION_PERMISSION = 14;
 
     private WebView webView;
     private ValueCallback<Uri[]> fileCallback;
@@ -231,6 +235,43 @@ public final class MainActivity extends Activity {
         }
     }
 
+    @Override protected void onStart() {
+        super.onStart();
+        BackgroundNotificationsService.setActivityVisible(true);
+        if (webView != null) {
+            webView.evaluateJavascript("window.vrcxAndroidResume && window.vrcxAndroidResume()", null);
+        }
+    }
+
+    @Override protected void onStop() {
+        if (webView != null) {
+            webView.evaluateJavascript("window.vrcxAndroidHidden && window.vrcxAndroidHidden()", null);
+        }
+        BackgroundNotificationsService.setActivityVisible(false);
+        super.onStop();
+    }
+
+    private void enableBackgroundAlerts() {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[] { Manifest.permission.POST_NOTIFICATIONS }, NOTIFICATION_PERMISSION);
+            return;
+        }
+        try {
+            startForegroundService(new Intent(this, BackgroundNotificationsService.class));
+        } catch (RuntimeException error) {
+            Log.w(TAG, "Cannot start background notifications", error);
+        }
+    }
+
+    @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(requestCode, permissions, results);
+        if (requestCode == NOTIFICATION_PERMISSION && results.length > 0
+            && results[0] == PackageManager.PERMISSION_GRANTED) {
+            enableBackgroundAlerts();
+        }
+    }
+
     @Override protected void onDestroy() {
         if (fileCallback != null) fileCallback.onReceiveValue(null);
         worker.shutdownNow();
@@ -268,6 +309,10 @@ public final class MainActivity extends Activity {
                             break;
                         case "background":
                             runOnUiThread(() -> moveTaskToBack(true));
+                            value = true;
+                            break;
+                        case "backgroundAlerts":
+                            runOnUiThread(MainActivity.this::enableBackgroundAlerts);
                             value = true;
                             break;
                         default:

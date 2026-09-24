@@ -1,6 +1,6 @@
 import { setActivePinia } from 'pinia';
 
-import { pinia } from '../stores';
+import { pinia, useFriendStore, useNotificationStore } from '../stores';
 import { invoke } from './bridge';
 
 Error.stackTraceLimit = 30;
@@ -61,6 +61,22 @@ window.electron = {
 window.vrcxAndroidBack = () => {
     if (history.length > 1) history.back();
     else invoke('background').catch(() => {});
+};
+
+window.vrcxAndroidHidden = () => {
+    import('../services/websocket.js').then(({ closeWebSocket }) => closeWebSocket());
+};
+
+window.vrcxAndroidResume = () => {
+    Promise.all([import('../services/websocket.js'), import('../services/watchState.js')]).then(
+        ([{ reconnectWebSocket }, { watchState }]) => {
+            if (!watchState.isLoggedIn || !watchState.isFriendsLoaded) return;
+            // The native socket kept delivering OS notifications while hidden;
+            // refresh upstream stores to include events received in that time.
+            Promise.allSettled([useFriendStore().refreshFriends(), useNotificationStore().refreshNotifications()]);
+            reconnectWebSocket();
+        }
+    );
 };
 
 window.addEventListener('error', (event) => {

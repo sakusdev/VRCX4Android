@@ -52,6 +52,8 @@ final class NativeApi {
     private static final String KEY_ALIAS = "vrcx_android_session_v1";
     private static final String SESSION_HANDLE_PREFIX = "android-session:";
     private static final String SESSION_PREF_PREFIX = "session_snapshot_";
+    private static final Object SESSION_LOCK = new Object();
+    private static long sessionGeneration;
     private static final int MAX_RESPONSE = 8 * 1024 * 1024;
     private static final Pattern SQL_PARAM = Pattern.compile("@[A-Za-z0-9_]+");
 
@@ -60,9 +62,13 @@ final class NativeApi {
     private final SharedPreferences prefs;
     private final SharedPreferences desktopPrefs;
     private volatile SQLiteDatabase database;
+    private long instanceSessionGeneration;
 
     NativeApi(Context context) {
         this.context = context;
+        synchronized (SESSION_LOCK) {
+            instanceSessionGeneration = sessionGeneration;
+        }
         prefs = context.getSharedPreferences("native_session", Context.MODE_PRIVATE);
         desktopPrefs = context.getSharedPreferences("vrcx_storage", Context.MODE_PRIVATE);
         // SQLite is opened lazily. A database/OS compatibility failure must not
@@ -536,7 +542,21 @@ final class NativeApi {
 
     void clearSession() {
         cookies.getCookieStore().removeAll();
-        prefs.edit().remove("cookies").apply();
+        synchronized (SESSION_LOCK) {
+            instanceSessionGeneration = ++sessionGeneration;
+            prefs.edit().remove("cookies").commit();
+        }
+        context.stopService(new Intent(context, BackgroundNotificationsService.class));
+    }
+
+    String backgroundAuthToken() throws Exception {
+        JSONObject response = execute(new URL(API + "auth"), "GET", null, null, null, null, null);
+        if (response.getInt("status") != 200) {
+            throw new IllegalStateException("Background VRChat session expired");
+        }
+        String token = new JSONObject(response.getString("body")).optString("token", "");
+        if (token.isEmpty()) throw new IllegalStateException("VRChat pipeline token unavailable");
+        return token;
     }
 
     private URL validateApiUrl(String url) throws Exception {
@@ -806,8 +826,11 @@ final class NativeApi {
 
     private void saveCookies() throws Exception {
         String encoded = encryptCookieArray(serializeCookies());
-        if (!prefs.edit().putString("cookies", encoded).commit()) {
-            throw new IllegalStateException("Could not persist session");
+        synchronized (SESSION_LOCK) {
+            if (instanceSessionGeneration != sessionGeneration) return;
+            if (!prefs.edit().putString("cookies", encoded).commit()) {
+                throw new IllegalStateException("Could not persist session");
+            }
         }
     }
 
