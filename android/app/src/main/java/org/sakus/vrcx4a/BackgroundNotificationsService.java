@@ -35,7 +35,7 @@ public final class BackgroundNotificationsService extends Service {
     private static final String SERVICE_CHANNEL = "vrcx-background-status";
     private static final String EVENTS_CHANNEL = "vrcx-background-events";
     private static final int SERVICE_NOTIFICATION_ID = 1;
-    private static volatile boolean activityVisible = true;
+    private static volatile boolean activityVisible;
     private static WeakReference<BackgroundNotificationsService> current = new WeakReference<>(null);
 
     private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
@@ -90,8 +90,9 @@ public final class BackgroundNotificationsService extends Service {
         enqueue(() -> {
             if (!activityVisible) connect();
         });
-        // A fresh renderer login is required after process death; no token is stored in plain text.
-        return START_NOT_STICKY;
+        // Android can restart the service after reclaiming the process. The
+        // connection reacquires its token from the encrypted cookie jar.
+        return START_STICKY;
     }
 
     @Override public IBinder onBind(Intent intent) {
