@@ -557,9 +557,11 @@ final class NativeApi {
 
     String backgroundAuthToken() throws Exception {
         JSONObject response = execute(new URL(API + "auth"), "GET", null, null, null, null, null);
-        if (response.getInt("status") != 200) {
+        int status = response.getInt("status");
+        if (status == 401 || status == 403) {
             throw new IllegalStateException("Background VRChat session expired");
         }
+        if (status != 200) throw new IOException("VRChat auth temporarily unavailable: " + status);
         String token = new JSONObject(response.getString("body")).optString("token", "");
         if (token.isEmpty()) throw new IllegalStateException("VRChat pipeline token unavailable");
         return token;
